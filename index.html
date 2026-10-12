@@ -439,6 +439,7 @@ legend{font-family:var(--f-display);font-weight:700;font-size:14px;padding:0 6px
 </div>
 <div id="overlay"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 (function(){
 "use strict";
@@ -565,36 +566,90 @@ function mergeSettings(stored){
 }
 const L=k=>S.settings.lists[k]||[];
 
-/* ================= data layer ================= */
+/* ================= data layer: Supabase + local fallback ================= */
 let db=null;
 const LOCAL_KEY="shiptrack-local-v1";
+const SUPA_CFG_KEY="shiptrack-supabase-config-v1";
+let supa=null, realtimeChannel=null, syncError="";
+function getSupaConfig(){try{return JSON.parse(localStorage.getItem(SUPA_CFG_KEY)||"null")}catch(e){return null}}
+function setSupaConfig(c){try{localStorage.setItem(SUPA_CFG_KEY,JSON.stringify(c))}catch(e){}}
+function askSupabaseConfig(){
+  const old=getSupaConfig()||{};
+  const url=prompt("Enter your Supabase Project URL (Project Settings → API)",old.url||"");
+  if(url===null)return;
+  const key=prompt("Enter your Supabase publishable key (or legacy anon key). Never enter a service_role/secret key.",old.key||"");
+  if(key===null)return;
+  if(!/^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/i.test(url.trim())||!key.trim()){
+    alert("Please enter a valid https://YOUR-PROJECT.supabase.co URL and a public publishable/anon key.");return;
+  }
+  setSupaConfig({url:url.trim().replace(/\/$/,""),key:key.trim()});
+  location.reload();
+}
+function localSnapshot(){try{return JSON.parse(lsGet(LOCAL_KEY)||"null")}catch(e){return null}}
+function rowToSettingDocs(rows){const docs={};rows.filter(r=>r.kind==="setting").forEach(r=>docs[r.record_id]=r.data||{});return docs}
+async function pullRemote(){
+  const {data,error}=await supa.from("app_records").select("kind,record_id,data,updated_at");
+  if(error)throw error;
+  const rows=data||[];
+  S.ships=rows.filter(r=>r.kind==="shipment").map(r=>({...JSON.parse(JSON.stringify(r.data||{})),_id:r.record_id}));
+  S.jobs=rows.filter(r=>r.kind==="job").map(r=>({...JSON.parse(JSON.stringify(r.data||{})),_id:r.record_id}));
+  const docs=rowToSettingDocs(rows);S._parts={};Object.entries(docs).forEach(([k,v])=>S._parts[k]=JSON.stringify(v));
+  S.settings=mergeSettings(joinSettings(docs));S.setLoaded=true;S.loaded=true;
+}
+async function upsertRemote(kind,id,data){
+  const {error}=await supa.from("app_records").upsert({kind,record_id:String(id),data,updated_at:new Date().toISOString()},{onConflict:"kind,record_id"});
+  if(error)throw error;
+}
+async function deleteRemote(kind,id){const {error}=await supa.from("app_records").delete().eq("kind",kind).eq("record_id",String(id));if(error)throw error}
+async function migrateLocalIfRemoteEmpty(){
+  const local=localSnapshot();if(!local)return;
+  const {count,error}=await supa.from("app_records").select("kind",{count:"exact",head:true});
+  if(error)throw error;
+  if((count||0)!==0)return;
+  if(!confirm("Your Supabase database is empty. Import this browser's local shipments, jobs and settings into Supabase? This will copy the local data to your cloud database."))return;
+  for(const s of (local.ships||[]))await upsertRemote("shipment",s._id||newId(),compact(s));
+  for(const j of (local.jobs||[]))await upsertRemote("job",j._id||newId(),compact(j));
+  const settings=JSON.parse(JSON.stringify(local.settings||DEFAULTS));delete settings.listNames;
+  if(Array.isArray(settings.users)&&settings.users.length)delete settings.auth;
+  for(const [id,doc] of Object.entries(splitSettings(settings)))await upsertRemote("setting",id,doc);
+}
 async function initData(){
-  try{
-    if(window.claude&&typeof window.claude.use==="function"){
-      db=await Promise.race([window.claude.use("db"),new Promise(r=>setTimeout(()=>r(null),10000))]);
+  const cfg=getSupaConfig();
+  if(cfg&&window.supabase&&window.supabase.createClient){
+    try{
+      supa=window.supabase.createClient(cfg.url,cfg.key,{auth:{persistSession:false},realtime:{params:{eventsPerSecond:5}}});
+      S.mode="connecting";
+      // Verify access, then migrate local data only when the cloud table is empty.
+      const {error:probeError}=await supa.from("app_records").select("record_id").limit(1);
+      if(probeError)throw probeError;
+      await migrateLocalIfRemoteEmpty();
+      await pullRemote();S.mode="db";syncError="";
+      if(realtimeChannel)await supa.removeChannel(realtimeChannel);
+      realtimeChannel=supa.channel("shipment-tracker-live").on("postgres_changes",{event:"*",schema:"public",table:"app_records"},()=>{
+        pullRemote().then(()=>render()).catch(e=>{syncError=e.message||String(e);toast("Cloud sync error: "+syncError)});
+      }).subscribe((status)=>{if(status==="CHANNEL_ERROR")toast("Live updates unavailable; refresh to sync.")});
+    }catch(e){
+      S.mode="local";syncError=(e&&e.message)||"Could not connect to Supabase";
+      const raw=localSnapshot();if(raw){S.ships=raw.ships||[];S.jobs=raw.jobs||[];S.settings=mergeSettings(raw.settings)}
+      S.setLoaded=true;S.loaded=true;
+      console.error("Supabase connection failed:",e);
     }
-  }catch(e){db=null}
-  if(db){
-    S.mode="db";
-    db.collection("shipments").onSnapshot(snap=>{S.ships=snap.docs.map(d=>({...JSON.parse(JSON.stringify(d.data()||{})),_id:d.id}));S.loaded=true;render()},err=>{toast("Live sync stopped: "+(err&&err.message||"unavailable"));});
-    db.collection("jobs").onSnapshot(snap=>{S.jobs=snap.docs.map(d=>({...JSON.parse(JSON.stringify(d.data()||{})),_id:d.id}));render()},()=>{});
-    db.collection("settings").onSnapshot(snap=>{const docs={};snap.docs.forEach(d=>{docs[d.id]=JSON.parse(JSON.stringify(d.data()||{}))});S._parts={};Object.entries(docs).forEach(([k,v])=>S._parts[k]=JSON.stringify(v));S.settings=mergeSettings(joinSettings(docs));S.setLoaded=true;render()},()=>{S.setLoaded=true});
   }else{
     S.mode="local";
-    try{const raw=JSON.parse(lsGet(LOCAL_KEY)||"null");if(raw){S.ships=raw.ships||[];S.jobs=raw.jobs||[];S.settings=mergeSettings(raw.settings)}}catch(e){}
-    S.setLoaded=true;
-    S.loaded=true;
+    const raw=localSnapshot();if(raw){S.ships=raw.ships||[];S.jobs=raw.jobs||[];S.settings=mergeSettings(raw.settings)}
+    S.setLoaded=true;S.loaded=true;
   }
   render();
 }
 function saveLocal(){lsSet(LOCAL_KEY,JSON.stringify({ships:S.ships,jobs:S.jobs,settings:S.settings}))}
 function writeErr(e){
-  const c=e&&e.code;
-  if(c==="invalid_argument")toast("You have view-only access, so changes can't be saved.");
-  else if(c==="quota_exceeded")toast("Storage is full. Delete old shipments and try again.");
-  else toast("Couldn't save: "+((e&&e.message)||"try again"));
+  const msg=(e&&e.message)||"try again";
+  if(e&&e.code==="invalid_argument")toast("You have view-only access, so changes can't be saved.");
+  else if(e&&e.code==="quota_exceeded")toast("Storage is full. Delete old shipments and try again.");
+  else toast("Couldn't save to "+(S.mode==="db"?"Supabase: ":"storage: ")+msg);
+  console.error("Save failed:",e);
 }
-const MAXB=1024,DROP=new Set(["_id","progress"]);
+const MAXB=1000000,DROP=new Set(["_id","progress"]);
 function compact(o){const r={};for(const[k,v]of Object.entries(o)){if(DROP.has(k)||v===""||v===null||v===undefined||v===false)continue;if(Array.isArray(v)&&!v.length)continue;r[k]=v}return r}
 const bytes=o=>new TextEncoder().encode(JSON.stringify(o)).length;
 async function persist(s){
@@ -602,25 +657,25 @@ async function persist(s){
   if(was&&!inHub(was)&&inHub(s))setTimeout(()=>toast(s.shipment_id+" is now in the In Hub tab ("+s.transit_hub+") for completion"),300);
   else if(!was&&inHub(s))setTimeout(()=>toast(s.shipment_id+" added to the In Hub tab ("+s.transit_hub+")"),300);
   const body=compact(JSON.parse(JSON.stringify(s)));body.updated=Date.now();
-  if(bytes(body)>MAXB){toast("Not saved: "+(s.shipment_id||"this record")+" would be over 1 KB. Shorten the remarks or long text fields.");render(true);return}
+  if(bytes(body)>MAXB){toast("Not saved: "+(s.shipment_id||"this record")+" would be over 1 MB. Shorten the remarks or long text fields.");render(true);return}
   const i=S.ships.findIndex(x=>x._id===s._id);if(i>=0)S.ships[i]={...body,_id:s._id};else S.ships.push({...body,_id:s._id});
   render();
-  if(S.mode==="db"){try{await db.collection("shipments").doc(s._id).set(body)}catch(e){writeErr(e)}}else saveLocal();
+  if(S.mode==="db"){try{await upsertRemote("shipment",s._id,body)}catch(e){writeErr(e)}}else saveLocal();
 }
 async function persistJob(j){
   const body=compact(JSON.parse(JSON.stringify(j)));body.updated=Date.now();
-  if(bytes(body)>MAXB){toast("Not saved: job would be over 1 KB. Shorten the text.");render(true);return}
+  if(bytes(body)>MAXB){toast("Not saved: job would be over 1 MB. Shorten the text.");render(true);return}
   const i=S.jobs.findIndex(x=>x._id===j._id);if(i>=0)S.jobs[i]={...body,_id:j._id};else S.jobs.push({...body,_id:j._id});
   render();
-  if(S.mode==="db"){try{await db.collection("jobs").doc(j._id).set(body)}catch(e){writeErr(e)}}else saveLocal();
+  if(S.mode==="db"){try{await upsertRemote("job",j._id,body)}catch(e){writeErr(e)}}else saveLocal();
 }
 async function removeJob(id){
   S.jobs=S.jobs.filter(x=>x._id!==id);render();
-  if(S.mode==="db"){try{await db.collection("jobs").doc(id).delete()}catch(e){writeErr(e)}}else saveLocal();
+  if(S.mode==="db"){try{await deleteRemote("job",id)}catch(e){writeErr(e)}}else saveLocal();
 }
 async function removeShip(id){
   S.ships=S.ships.filter(x=>x._id!==id);render();
-  if(S.mode==="db"){try{await db.collection("shipments").doc(id).delete()}catch(e){writeErr(e)}}else saveLocal();
+  if(S.mode==="db"){try{await deleteRemote("shipment",id)}catch(e){writeErr(e)}}else saveLocal();
 }
 let setT;
 const PREF_KEYS=["currency","analysisDays","etdDays","destCountry"];
@@ -650,8 +705,8 @@ function saveSettings(){
     if(S.mode==="db"){
       const out=splitSettings(body);
       try{
-        for(const[id,doc]of Object.entries(out)){const js=JSON.stringify(doc);if(S._parts[id]!==js){await db.doc("settings/"+id).set(doc);S._parts[id]=js}}
-        for(const id of Object.keys(S._parts)){if(!(id in out)){await db.doc("settings/"+id).delete();delete S._parts[id]}}
+        for(const[id,doc]of Object.entries(out)){const js=JSON.stringify(doc);if(S._parts[id]!==js){await upsertRemote("setting",id,doc);S._parts[id]=js}}
+        for(const id of Object.keys(S._parts)){if(!(id in out)){await deleteRemote("setting",id);delete S._parts[id]}}
       }catch(e){writeErr(e)}
     }else saveLocal();
   },400);
@@ -819,7 +874,7 @@ function render(force){
   $("#bottomnav").innerHTML=VIEWS.filter(([k])=>can(k)).map(([k,t])=>`<button type="button" data-nav="${k}"${S.view===k?' aria-current="page"':""}>${ICONS[k]}<span>${({dash:"Home",jobs:"Jobs",main:"Shipments",hub:"In Hub",release:"Release",done:"Done",settings:"Settings"})[k]||t}</span></button>`).join("");
   $("#viewTitle").textContent=VIEWS.find(v=>v[0]===S.view)[1];
   $("#whoami").innerHTML=`Signed in as <b>${esc(M.name||M.user)}</b>${M.admin?' <span class="badge b-info">Admin</span>':""}`;
-  $("#syncState").innerHTML=S.mode==="db"?'<span class="badge b-ok">Live sync on</span>':S.mode==="local"?'<span class="badge b-warn">This device only</span>':'<span class="badge b-muted">Connecting…</span>';
+  $("#syncState").innerHTML=S.mode==="db"?'<button class="badge b-ok" type="button" data-supa-config title="Supabase connected — click to change connection">Supabase · Live sync</button>':S.mode==="local"?'<button class="badge b-warn" type="button" data-supa-config title="Click to connect Supabase">Local only · Connect</button>'+(syncError?'<div style="font-size:11px;color:var(--bad);max-width:190px;overflow-wrap:anywhere">'+esc(syncError)+'</div>':''):'<span class="badge b-muted">Connecting…</span>';
   const al=alerts();const bc=$("#bellCount");bc.hidden=!al.length;bc.textContent=al.length>99?"99+":al.length;
   const v=$("#view");
   let h="";
@@ -1720,6 +1775,7 @@ $("#q").addEventListener("input",e=>{S.q=e.target.value;render()});
 $("#newBtn").addEventListener("click",newShip);
 function signOut(msg){lsDel("shiptrack-auth");S.meId=null;closeDrawer();$("#app").hidden=true;$("#login").hidden=false;$("#lp").value="";$("#loginErr").textContent=msg||""}
 $("#logoutBtn").addEventListener("click",()=>signOut());
+document.addEventListener("click",e=>{if(e.target.closest("[data-supa-config]"))askSupabaseConfig()});
 function toggleBell(){
   if($(".pop")){$(".pop").remove();return}
   const al=alerts();const p=document.createElement("div");p.className="pop";p.setAttribute("role","dialog");p.setAttribute("aria-label","Notifications");
