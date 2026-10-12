@@ -1,0 +1,1745 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Shipment Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: operations console — left rail of sections, a manifest-style grid, and a dashboard that reads as the route from supplier to final country. */
+:root{
+  --bg:#F2F5F4; --surface:#FFFFFF; --surface-2:#E9EEEC; --ink:#14222A; --muted:#5B6B70; --line:#D5DDDA;
+  --accent:#0E6A73; --accent-soft:#D6ECEE; --accent-ink:#FFFFFF;
+  --ok:#1E7B3A; --warn:#A35C00; --bad:#B42318; --info:#1D5FB0; --violet:#6B3FB0;
+  --t-green:#E1F3E5; --t-blue:#E1EDFB; --t-purple:#EEE6FA; --t-orange:#FDE9D4; --t-red:#FBDFDC; --t-yellow:#FFF4C2;
+  --shadow:0 10px 30px rgba(20,34,42,.14);
+  --f-display:"Archivo","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0D1417; --surface:#141F24; --surface-2:#1A272D; --ink:#E3EBE9; --muted:#93A3A7; --line:#27373D;
+  --accent:#43B5BE; --accent-soft:#16363A; --accent-ink:#04181A;
+  --ok:#62C97E; --warn:#EFA640; --bad:#F27A6E; --info:#73A9EE; --violet:#B497EE;
+  --t-green:#15301E; --t-blue:#132A42; --t-purple:#281E3F; --t-orange:#3A2513; --t-red:#3D1917; --t-yellow:#34300E;
+  --shadow:0 10px 30px rgba(0,0,0,.45); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0D1417; --surface:#141F24; --surface-2:#1A272D; --ink:#E3EBE9; --muted:#93A3A7; --line:#27373D;
+  --accent:#43B5BE; --accent-soft:#16363A; --accent-ink:#04181A;
+  --ok:#62C97E; --warn:#EFA640; --bad:#F27A6E; --info:#73A9EE; --violet:#B497EE;
+  --t-green:#15301E; --t-blue:#132A42; --t-purple:#281E3F; --t-orange:#3A2513; --t-red:#3D1917; --t-yellow:#34300E;
+  --shadow:0 10px 30px rgba(0,0,0,.45); color-scheme:dark}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font:14px/1.45 var(--f-body);-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--f-mono);font-size:.92em;letter-spacing:-.01em}
+.num{font-variant-numeric:tabular-nums}
+h1,h2,h3{font-family:var(--f-display);font-stretch:85%;margin:0;text-wrap:balance;letter-spacing:-.01em}
+.eyebrow{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600}
+
+/* ---------- login ---------- */
+#login{min-height:100%;display:grid;place-items:center;padding:24px 16px}
+.login-card{width:100%;max-width:380px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:28px 24px;display:grid;gap:16px;box-shadow:var(--shadow)}
+.brand{display:flex;align-items:center;gap:10px}
+.brand-mark{width:34px;height:34px;border-radius:8px;background:var(--accent);display:grid;place-items:center;color:var(--accent-ink)}
+.brand-name{font-family:var(--f-display);font-weight:800;font-stretch:80%;font-size:20px;letter-spacing:.01em;text-transform:uppercase}
+.login-card label{display:grid;gap:6px;font-weight:600;font-size:13px}
+.err{color:var(--bad);font-size:13px;min-height:1em}
+
+/* ---------- shell ---------- */
+#app{display:grid;grid-template-columns:232px 1fr;height:100%}
+.rail{background:var(--surface);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:18px 12px;gap:18px;position:sticky;top:0;height:100%;overflow:auto}
+.rail nav{display:grid;gap:2px}
+.navbtn{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;border:0;background:none;text-align:left;font-weight:600;color:var(--muted)}
+.navbtn svg{width:18px;height:18px;flex:none}
+.navbtn:hover{background:var(--surface-2);color:var(--ink)}
+.navbtn[aria-current="page"]{background:var(--accent-soft);color:var(--accent)}
+.navbtn .count{margin-left:auto;font-size:12px;font-variant-numeric:tabular-nums;background:var(--surface-2);color:var(--muted);padding:1px 7px;border-radius:99px}
+.rail-foot{margin-top:auto;display:grid;gap:8px;font-size:12px;color:var(--muted)}
+.main{min-width:0;display:flex;flex-direction:column;height:100%;overflow:auto}
+.topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:center;padding:10px 20px}
+.topbar h1{font-size:22px;font-weight:750;white-space:nowrap}
+.search{flex:1;min-width:0;max-width:420px;margin-left:auto;position:relative}
+.search input{width:100%;padding:8px 10px 8px 32px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.search svg{position:absolute;left:9px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--muted)}
+.iconbtn{position:relative;width:36px;height:36px;border-radius:8px;border:1px solid var(--line);background:var(--surface);display:grid;place-items:center;flex:none}
+.iconbtn svg{width:18px;height:18px}
+.dot{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 5px;border-radius:99px;background:var(--bad);color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;border-radius:8px;padding:8px 12px;border:1px solid var(--line);background:var(--surface);font-weight:600;white-space:nowrap}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.danger{color:var(--bad)}
+.btn.small{padding:5px 9px;font-size:13px}
+.btn svg{width:16px;height:16px}
+#view{padding-block:18px 40px;padding-inline:20px;display:grid;gap:18px;align-content:start;min-width:0}
+.banner{border:1px dashed var(--warn);color:var(--warn);background:var(--t-orange);padding:8px 12px;border-radius:8px;font-size:13px}
+
+/* ---------- filters ---------- */
+.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.filters select,.filters input{padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);max-width:170px;font-size:13px}
+.filters .lbl{font-size:12px;color:var(--muted);font-weight:600}
+.chipcheck{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+
+/* ---------- table ---------- */
+.tablewrap{overflow:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface);max-height:calc(100vh - 210px)}
+table.grid{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:13px}
+.grid th{position:sticky;top:0;z-index:2;background:var(--surface-2);text-align:left;font-weight:700;font-size:11.5px;letter-spacing:.03em;text-transform:uppercase;color:var(--muted);padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+.grid thead tr.groups th{top:0;text-align:center;color:var(--ink);background:var(--surface);border-right:1px solid var(--line)}
+.grid thead tr.groups + tr th{top:35px}
+.grid td{padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap;max-width:260px;overflow:hidden;text-overflow:ellipsis;background:var(--rowbg,var(--surface))}
+.grid tbody tr{cursor:pointer}
+.grid tbody tr:hover td{filter:brightness(.97)}
+:root[data-theme="dark"] .grid tbody tr:hover td{filter:brightness(1.15)}
+.grid .stick{position:sticky;left:0;z-index:1;border-right:1px solid var(--line)}
+.grid th.stick{z-index:3}
+.grid tr.cont td.stick{color:var(--muted)}
+.tone-green{--rowbg:var(--t-green)} .tone-blue{--rowbg:var(--t-blue)} .tone-purple{--rowbg:var(--t-purple)}
+.tone-orange{--rowbg:var(--t-orange)} .tone-red{--rowbg:var(--t-red)} .tone-yellow{--rowbg:var(--t-yellow)}
+tr.dim td{opacity:.62}
+.grid td input[type=text],.grid td input[type=date],.grid td select{padding:4px 6px;width:auto;border:1px solid var(--line);border-radius:6px;background:var(--surface);font-size:12.5px;max-width:170px}
+.grid td.edit{overflow:visible}
+.grid.fancy td.edit{max-width:none}
+
+.badge{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:99px;font-size:12px;font-weight:650;border:1px solid currentColor;line-height:1.5;white-space:nowrap}
+.badge::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.b-ok{color:var(--ok)} .b-warn{color:var(--warn)} .b-bad{color:var(--bad)} .b-info{color:var(--info)} .b-violet{color:var(--violet)} .b-muted{color:var(--muted)}
+.paycell.Pending{background:var(--t-red)} .paycell.Partial{background:var(--t-orange)} .paycell.Paid{background:var(--t-green)}
+.bar{height:6px;border-radius:99px;background:var(--surface-2);overflow:hidden;min-width:70px}
+.bar i{display:block;height:100%;background:var(--accent);border-radius:99px}
+.progress{display:flex;align-items:center;gap:8px}
+.switch{appearance:none;width:34px;height:20px;border-radius:99px;background:var(--line);position:relative;border:0;cursor:pointer;flex:none;vertical-align:middle}
+.switch::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--surface);transition:left .15s}
+.switch:checked{background:var(--accent)} .switch:checked::after{left:16px}
+.tick{width:18px;height:18px;accent-color:var(--ok)}
+
+/* ---------- main: eye-catching ---------- */
+.ph-chips{display:flex;flex-wrap:wrap;gap:8px}
+.phchip{display:inline-flex;align-items:center;gap:8px;padding:7px 13px 7px 11px;border-radius:99px;border:1px solid var(--line);background:var(--surface);font-weight:650;font-size:13px}
+.phchip i{width:9px;height:9px;border-radius:50%;background:var(--pc)}
+.phchip b{font-family:var(--f-display);font-stretch:80%;font-size:16px;font-variant-numeric:tabular-nums;color:var(--pc)}
+.phchip:hover{border-color:var(--pc)}
+.phchip.on{border-color:var(--pc);background:color-mix(in srgb,var(--pc) 14%,var(--surface));box-shadow:inset 0 0 0 1px var(--pc)}
+.sc{display:inline-block;padding:2px 8px;border-radius:6px;font-size:12px;font-weight:650;line-height:1.5;background:color-mix(in srgb,var(--cc,var(--muted)) 15%,transparent);color:var(--cc,var(--muted));white-space:nowrap}
+.c-ok{--cc:var(--ok)} .c-warn{--cc:var(--warn)} .c-bad{--cc:var(--bad)} .c-muted{--cc:var(--muted)} .c-info{--cc:var(--info)}
+.av{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;font-size:10px;font-weight:750;background:color-mix(in srgb,var(--ac) 20%,transparent);color:var(--ac);margin-right:7px;vertical-align:middle;letter-spacing:.02em;flex:none}
+.stage{display:inline-block;padding:3px 9px;border-radius:6px;font-size:12px;font-weight:700;background:color-mix(in srgb,var(--pc) 16%,transparent);color:var(--pc);white-space:nowrap}
+.bar.thick{height:8px;min-width:90px}
+.grid.fancy td{padding:10px 12px}
+.grid.fancy td.idcell{box-shadow:inset 5px 0 0 var(--pc);padding-left:16px}
+.idcell small{display:block;font-size:11px;font-weight:700;letter-spacing:.02em}
+.grid.fancy tr.cont td.idcell{box-shadow:inset 5px 0 0 color-mix(in srgb,var(--pc) 45%,transparent)}
+.grid thead tr.groups th{font-family:var(--f-display);font-stretch:85%;font-size:12.5px;letter-spacing:.06em}
+.band-a{background:var(--accent-soft)!important;color:var(--accent)!important}
+.band-b{background:var(--t-yellow)!important;color:var(--warn)!important}
+.band-c{background:var(--t-blue)!important;color:var(--info)!important}
+.band-d{background:var(--t-green)!important;color:var(--ok)!important}
+.grid td.ctr{text-align:center}
+.card.stripe{border-left:5px solid var(--pc)}
+.hub-sum{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.hub-sum>div{background:var(--surface);border:1px solid var(--line);border-top:3px solid var(--pc,var(--accent));border-radius:10px;padding:12px 14px;display:grid;gap:2px}
+.hub-sum b{font-family:var(--f-display);font-stretch:80%;font-size:28px;font-weight:750;color:var(--pc,var(--accent));font-variant-numeric:tabular-nums}
+.hchecks{display:grid;gap:6px;padding-top:4px;border-top:1px solid var(--line)}
+.hchk{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;padding:4px 0}
+@media (max-width:860px){.hub-sum{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.supc{display:inline-flex;align-items:center}
+.supc>span:last-child{display:grid;line-height:1.25}
+.seq{display:inline-block;font-size:11px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;letter-spacing:.01em}
+.ttag{border:1px solid color-mix(in srgb,var(--cc) 45%,transparent)}
+.expbar{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.grid th,.grid td{vertical-align:middle}
+.grid td.r,.grid th.r{text-align:right}
+.grid.fancy th{min-width:96px}
+.klink{border:0;background:none;padding:2px 0;white-space:nowrap;display:inline-block;line-height:1.4;color:var(--accent);font-weight:700;text-decoration:underline;text-underline-offset:3px;cursor:pointer;font-size:inherit}
+.klink.knone{color:var(--muted);font-weight:600;text-decoration-style:dotted}
+.drawer.track{width:min(820px,100%)}
+.trk-hero{background:var(--surface);border:1px solid var(--line);border-top:4px solid var(--pc);border-radius:12px;padding:16px;display:grid;gap:14px}
+.trk-top{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.trk-prod{font-family:var(--f-display);font-stretch:85%;font-size:22px;font-weight:750;margin:2px 0}
+.trk-now{display:grid;justify-items:end;gap:4px;text-align:right}
+.trk-now b{font-family:var(--f-display);font-stretch:85%;font-size:24px;color:var(--pc)}
+.trk-route{display:flex;align-items:center;gap:8px}
+.rt{display:grid;justify-items:center;gap:2px;text-align:center;min-width:0;flex:none;max-width:32%}
+.rt i{width:16px;height:16px;border-radius:50%;border:3px solid var(--line);background:var(--surface)}
+.rt.on i{border-color:var(--ok);background:var(--ok)}
+.rt.here i{box-shadow:0 0 0 5px color-mix(in srgb,var(--ok) 25%,transparent)}
+.rt b{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.rt-line{flex:1;height:3px;background:var(--line);border-radius:2px;margin-bottom:28px}
+.tl{list-style:none;margin:0;padding:0;display:grid}
+.tl li{display:grid;grid-template-columns:28px 1fr;gap:10px;position:relative;padding-bottom:14px}
+.tl li::before{content:"";position:absolute;left:13px;top:24px;bottom:0;width:2px;background:var(--line)}
+.tl li:last-child::before{display:none}
+.tl li.done::before{background:var(--ok)}
+.tl li>i{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-style:normal;font-weight:800;font-size:13px;border:2px solid var(--line);background:var(--surface);color:#fff;z-index:1}
+.tl li.done>i{background:var(--ok);border-color:var(--ok)}
+.tl li.cur>i{border-color:var(--warn);box-shadow:0 0 0 4px color-mix(in srgb,var(--warn) 22%,transparent)}
+.tl li.warn:not(.cur)>i{border-color:var(--warn)}
+.tl li>div{display:grid;gap:1px;padding-top:2px}
+.tl li b{font-size:14px}
+.tl li span{font-size:12.5px;color:var(--muted)}
+.tl li.cur b{color:var(--warn)}
+.tl li:not(.done):not(.cur) b{color:var(--muted);font-weight:600}
+.trk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px 18px;margin:0}
+.trk-grid>div{display:grid;gap:2px;min-width:0;padding-bottom:8px;border-bottom:1px solid var(--line)}
+.trk-grid dt{font-size:11.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.trk-grid dd{margin:0;overflow-wrap:anywhere}
+@media (prefers-reduced-motion:no-preference){.tl li.cur>i{animation:pulse 1.6s ease-in-out infinite}}
+@keyframes pulse{50%{box-shadow:0 0 0 7px color-mix(in srgb,var(--warn) 10%,transparent)}}
+.permit-alert{border:2px solid var(--ok);background:color-mix(in srgb,var(--ok) 8%,var(--surface));border-radius:12px;padding:14px 16px;display:grid;gap:12px}
+.pa-h{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.pa-h>div{flex:1;min-width:220px;display:grid;gap:2px}
+.pa-h b{font-family:var(--f-display);font-stretch:85%;font-size:18px;color:var(--ok)}
+.pa-h span{color:var(--muted);font-size:13px}
+.pa-h .pa-icon{color:#fff;width:34px;height:34px;border-radius:50%;background:var(--ok);color:var(--surface);display:grid!important;place-items:center;font-weight:800;font-size:17px!important;flex:none}
+.pa-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+.pa-item{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:grid;gap:6px}
+.pa-top{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pa-date{margin-left:auto;font-size:12px;color:var(--ok);font-weight:700}
+.pa-next{font-size:12.5px;font-weight:650;color:var(--ok)}
+.pa-hub{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600}.pa-hub select{padding:4px 8px;border:1px solid var(--ok);border-radius:6px;background:var(--surface)}
+.jobgrid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px}
+@media (max-width:1180px){.jobgrid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:860px){.jobgrid{grid-template-columns:1fr 1fr}.bottomnav button{font-size:9.5px}}
+.grid.fancy td .ce{border:1px solid transparent;background-color:transparent;padding:4px 6px;border-radius:6px;font:inherit;font-size:13px;color:inherit;max-width:none;min-width:0;cursor:pointer}
+.grid td input.ce{cursor:text}
+.ce:hover{border-color:var(--line)!important;background:var(--surface)!important}
+.ce:focus{border-color:var(--accent)!important;background:var(--surface)!important;outline:none;box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 25%,transparent)}
+.grid.fancy td select.ce{appearance:none;-webkit-appearance:none;padding-right:18px;background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%)!important;background-position:calc(100% - 9px) 52%,calc(100% - 5px) 52%!important;background-size:4px 4px,4px 4px!important;background-repeat:no-repeat!important}
+.grid.fancy td .ce.cs,.cardedit .ce.cs{font-weight:650;font-size:12px;color:var(--cc,var(--muted));background-color:color-mix(in srgb,var(--cc,var(--muted)) 14%,transparent)!important}
+.ce.cs:hover,.ce.cs:focus{background-color:var(--surface)!important}
+.ce.cb{font-weight:700}
+.ce.cd{width:132px}
+.ce.cpay{font-weight:700}
+.ce option{color:var(--ink);background:var(--surface);font-weight:400}
+.cpair{display:inline-flex;align-items:center;gap:4px}
+.idbtn{border:0;background:none;padding:0;text-align:left;cursor:pointer;color:inherit;display:grid}
+.idbtn .mono{text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
+.idbtn:hover .mono{color:var(--accent)}
+.trk{border:1px solid var(--line);background:var(--surface);color:var(--accent);border-radius:6px;width:26px;height:26px;font-size:15px;line-height:1;cursor:pointer;flex:none}
+.trk:hover{border-color:var(--accent)}
+.cardedit .ce{border:1px solid var(--line);border-radius:6px;padding:5px 8px}
+.edit-hint{font-size:12.5px;color:var(--muted)}
+.grid.fancy td .ce.blank{background-color:transparent!important;color:var(--muted);font-weight:400}
+.grid.fancy td input[type=date].ce.blank:not(:focus):not(:hover){color:transparent}
+.grid.fancy td input[type=date].ce.blank:not(:focus):not(:hover)::-webkit-calendar-picker-indicator{opacity:.25}
+.grid.fancy tr:hover td .ce.blank{color:var(--muted)}
+.hticks{display:inline-flex;gap:10px;align-items:center}
+.hticks .hchk{font-size:12px;font-weight:600;padding:0;gap:5px;white-space:nowrap;cursor:pointer}
+.card .hticks{display:grid;gap:6px}
+.card .hticks .hchk{font-size:13px}
+.set-tabs{display:flex;gap:4px;flex-wrap:wrap;background:var(--surface-2);padding:4px;border-radius:10px;width:fit-content;max-width:100%}
+.set-tabs button{border:0;background:none;padding:7px 12px;border-radius:7px;font-weight:650;font-size:13px;color:var(--muted)}
+.set-tabs button.on{background:var(--surface);color:var(--accent);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.panel.compact{padding:12px 14px;gap:10px;grid-template-columns:minmax(0,1fr)}
+.panel.compact h3,.listcard h3{font-size:15px;font-weight:700}
+.set-grid3{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr) minmax(0,1fr);gap:12px;align-items:start}
+.set-grid2{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:12px;align-items:start}
+.lists-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.listcard{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:grid;gap:8px;align-content:start}
+.listcard.flat{border:0;padding:0;background:none}
+.listcard.flat+.listcard.flat{border-top:1px solid var(--line);padding-top:10px}
+.mtable td{padding:3px 4px}
+.mtable td.x{width:28px;text-align:right}
+.mtable select,.mtable input{padding:3px 6px;font-size:13px}
+.xbtn{border:0;background:none;color:var(--muted);width:24px;height:24px;border-radius:6px;cursor:pointer}
+.xbtn:hover{background:var(--t-red);color:var(--bad)}
+.chip{font-size:12.5px;padding:2px 3px 2px 9px}
+.addrow input,.addrow select{padding:5px 8px;font-size:13px}
+.prefs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.note{margin:0;font-size:12.5px;color:var(--muted)}
+.mtable.users td{vertical-align:middle;padding:6px 4px}
+.mtable.users input{min-width:110px}
+.you{font-size:11px;color:var(--accent);font-weight:700;margin-top:2px}
+.mods{display:flex;flex-wrap:wrap;gap:4px;min-width:330px}
+.mod{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border:1px solid var(--line);border-radius:99px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap}
+.mod input{width:13px;height:13px;margin:0;accent-color:var(--accent)}
+.mod.on{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+.mod.locked{opacity:.75;cursor:default}
+.adduser{display:grid;grid-template-columns:1.2fr 1fr 1.3fr .7fr auto;gap:6px}
+.adduser input,.adduser select{padding:6px 8px;border:1px solid var(--line);border-radius:7px;background:var(--bg);font-size:13px;min-width:0}
+.btn.undo{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 45%,var(--line))}
+.btn.undo.armed{background:var(--warn);color:#fff;border-color:var(--warn)}
+#whoami{font-size:12.5px;color:var(--ink)}
+@media (max-width:1100px){.set-grid3{grid-template-columns:1fr 1fr}.set-grid3>.panel:nth-child(2){grid-column:1/-1;order:-1}}
+@media (max-width:860px){.set-grid3,.set-grid2,.prefs{grid-template-columns:1fr}.adduser{grid-template-columns:1fr 1fr}.adduser button{grid-column:1/-1}}
+.mtable.fixed{table-layout:fixed}
+.mtable select{max-width:100%}
+.mod input{width:13px!important;min-width:0!important;flex:none}
+.mtable.users select{min-width:84px}
+@media (max-width:860px){.mtable.users thead{display:none}.mtable.users,.mtable.users tbody{display:block}.mtable.users tr{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:10px 0;border-top:1px solid var(--line)}.mtable.users td{border:0;padding:0}.mtable.users td:nth-child(4),.mtable.users td:nth-child(5){grid-column:1/-1}.mods{min-width:0}.mtable.users input{min-width:0;width:100%}}
+/* ---------- cards (mobile) ---------- */
+.cards{display:none;gap:10px}
+.card{background:var(--rowbg,var(--surface));border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:grid;gap:8px;cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.card-h{display:flex;align-items:baseline;gap:8px;justify-content:space-between}
+.card-h b{font-family:var(--f-mono);font-size:13px}
+.card .prod{font-weight:600}
+.card .meta{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:12.5px;color:var(--muted);align-items:center}
+
+/* ---------- dashboard ---------- */
+.kpis{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:grid;gap:2px;text-align:left;align-content:start;border-top:3px solid var(--kc)}
+.kpi:hover{border-color:var(--kc)}
+.kpi.on{background:var(--surface-2);border-color:var(--kc);box-shadow:inset 0 0 0 1px var(--kc)}
+.kpi>span:first-child{font-weight:650;color:var(--ink)}
+.kpi b{font-family:var(--f-display);font-size:30px;font-weight:750;font-stretch:80%;font-variant-numeric:tabular-nums;line-height:1.1;color:var(--kc)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:1px 8px;margin:2px 0;font-size:12px}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (max-width:1180px){.kpis{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.kpi span{font-size:12.5px;color:var(--muted)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:grid;gap:14px;min-width:0}
+.panel-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.panel-h h2{font-size:18px;font-weight:700}
+.route{overflow-x:auto;padding-bottom:4px}
+.route-track{display:grid;grid-template-columns:repeat(8,minmax(150px,1fr));gap:10px;min-width:1240px;position:relative}
+.station{display:grid;gap:8px;align-content:start}
+.station-h{display:grid;gap:2px;padding-bottom:10px;border-bottom:3px solid var(--line);position:relative}
+.station-h::after{content:"";position:absolute;left:0;bottom:-7px;width:11px;height:11px;border-radius:50%;background:var(--surface);border:3px solid var(--line)}
+.station.has .station-h{border-bottom-color:var(--sc)}
+.station.has .station-h::after{border-color:var(--sc);background:var(--sc)}
+.station-h .n{font-family:var(--f-display);font-weight:750;font-size:26px;font-stretch:80%;line-height:1;color:var(--sc);font-variant-numeric:tabular-nums}
+.station:not(.has) .station-h .n{color:var(--muted)}
+.station-h .t{font-weight:700;font-size:13px}
+.station-h .s{font-size:11.5px;color:var(--muted)}
+.mini{background:var(--surface-2);border-radius:8px;padding:8px 9px;display:grid;gap:3px;cursor:pointer;border:1px solid transparent;font-size:12.5px}
+.mini:hover{border-color:var(--sc)}
+.mini .id{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);display:flex;justify-content:space-between;gap:6px}
+.mini .p{font-weight:600;line-height:1.3}
+.mini .w{color:var(--sc);font-weight:600;font-size:12px}
+.dash-cols{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:18px;align-items:start}
+.timeline{display:grid;gap:4px;overflow-x:auto}
+.tl-inner{min-width:640px;display:grid;gap:4px}
+.tl-row{display:grid;grid-template-columns:180px 1fr;gap:10px;align-items:center;min-height:30px;cursor:pointer}
+.tl-row:hover .tl-lab b{color:var(--accent)}
+.tl-lab{font-size:12px;line-height:1.25;min-width:0}
+.tl-lab b{font-family:var(--f-mono);font-size:11.5px;display:block}
+.tl-lab span{color:var(--muted);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tl-track{position:relative;height:24px;border-radius:4px;background:repeating-linear-gradient(90deg,transparent 0 calc(100%/90*7 - 1px),var(--line) calc(100%/90*7 - 1px) calc(100%/90*7))}
+.tl-bar{position:absolute;top:9px;height:6px;border-radius:99px;background:var(--ok)}
+.tl-bar.open{background:repeating-linear-gradient(90deg,var(--ok) 0 6px,transparent 6px 10px)}
+.tl-bar.done{background:var(--ok)}
+.tl-m{position:absolute;top:6px;width:12px;height:12px;margin-left:-6px;border-radius:50%;border:2px solid var(--surface);background:var(--info)}
+.tl-m.hub{border-radius:2px;transform:rotate(45deg);background:var(--violet)}
+.tl-m.fin{background:var(--ok);border-radius:3px}
+.tl-m.etd.future{background:var(--surface);border:2px solid var(--info)}
+.tl-today{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--accent);z-index:1}
+.tl-axis{display:grid;grid-template-columns:180px 1fr;gap:10px}
+.tl-ticks{position:relative;height:18px;font-size:11px;color:var(--muted)}
+.tl-ticks span{position:absolute;transform:translateX(-50%);white-space:nowrap}
+.tl-ticks span.today{color:var(--accent);font-weight:700}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;margin-right:5px;vertical-align:-1px;border-radius:50%}
+.alerts{display:grid;gap:8px}
+.alert{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;padding:9px 10px;border-radius:8px;background:var(--surface-2);cursor:pointer;font-size:13px;align-items:start}
+.alert i{width:8px;height:8px;border-radius:50%;margin-top:6px;background:var(--warn)}
+.alert.good i{background:var(--ok)} .alert.good{background:color-mix(in srgb,var(--ok) 12%,var(--surface-2))} .alert.bad i{background:var(--bad)} .alert.info i{background:var(--info)}
+.alert small{grid-column:2;color:var(--muted)}
+.paysum{display:grid;gap:8px}
+.payrow{display:grid;grid-template-columns:80px 1fr auto;gap:10px;align-items:center;font-size:13px}
+.empty{padding:28px 16px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:10px;display:grid;gap:10px;justify-items:center}
+
+/* ---------- drawer ---------- */
+.scrim{position:fixed;inset:0;background:rgba(10,18,22,.45);z-index:50}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(720px,100%);background:var(--bg);z-index:51;display:flex;flex-direction:column;box-shadow:var(--shadow);padding-top:env(safe-area-inset-top,0px)}
+.drawer-h{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line);background:var(--surface)}
+.drawer-h h2{font-size:20px}
+.drawer-b{flex:1;overflow:auto;padding:16px 18px;display:grid;gap:18px;align-content:start}
+.drawer-f{display:flex;gap:8px;flex-wrap:wrap;padding:12px 18px calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line);background:var(--surface)}
+fieldset{border:1px solid var(--line);border-radius:10px;padding:12px 14px 14px;margin:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px;background:var(--surface)}
+legend{font-family:var(--f-display);font-weight:700;font-size:14px;padding:0 6px;font-stretch:85%;letter-spacing:.02em;text-transform:uppercase}
+.fld{display:grid;gap:4px;min-width:0}
+.fld>span{font-size:12px;font-weight:600;color:var(--muted)}
+.fld input,.fld select,.fld textarea{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:7px;background:var(--bg)}
+.fld.auto>span::after{content:" · auto";color:var(--accent);font-weight:600}
+.fld.wide{grid-column:1/-1}
+.fld.inline{display:flex;align-items:center;gap:10px}
+.sibs{display:flex;flex-wrap:wrap;gap:6px;font-size:13px;align-items:center}
+.stagebar{display:grid;grid-template-columns:repeat(18,1fr);gap:2px}
+.stagebar i{height:6px;border-radius:2px;background:var(--line)}
+.stagebar i.on{background:var(--accent)}
+
+/* ---------- popover / sheet ---------- */
+.pop{position:fixed;top:58px;right:16px;width:min(380px,calc(100% - 32px));max-height:70vh;overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);z-index:40;padding:12px;display:grid;gap:10px}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:52;background:var(--surface);border-radius:16px 16px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px));display:grid;gap:8px;box-shadow:var(--shadow)}
+.sheet .btn{justify-content:center;padding:12px}
+.toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 14px;border-radius:8px;z-index:60;font-size:13px;font-weight:600;max-width:calc(100% - 32px)}
+
+/* ---------- settings ---------- */
+.set-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:start}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:3px 4px 3px 10px;border-radius:99px;background:var(--surface-2);font-size:13px}
+.chip button{border:0;background:none;width:20px;height:20px;border-radius:50%;color:var(--muted);line-height:1}
+.chip button:hover{background:var(--line);color:var(--bad)}
+.addrow{display:flex;gap:6px}
+.addrow input,.addrow select{flex:1;min-width:0;padding:6px 8px;border:1px solid var(--line);border-radius:7px;background:var(--bg)}
+.mtable{width:100%;border-collapse:collapse;font-size:13px}
+.mtable th{text-align:left;font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;padding:4px 6px}
+.mtable td{padding:4px 6px;border-top:1px solid var(--line)}
+.mtable select,.mtable input{width:100%;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--bg)}
+.listblock{display:grid;gap:6px;padding:10px 0;border-top:1px solid var(--line)}
+.listblock:first-child{border-top:0;padding-top:0}
+.help ol{margin:0;padding-left:20px;display:grid;gap:4px;max-width:70ch}
+
+/* ---------- bottom nav (mobile) ---------- */
+.bottomnav{display:none}
+@media (max-width:860px){
+  #app{grid-template-columns:1fr}
+  .rail{display:none}
+  .topbar{padding:10px 16px;flex-wrap:wrap}
+  .topbar h1{font-size:19px}
+  .search{order:5;flex-basis:100%;max-width:none}
+  .topbar .btn .lbl{display:none}
+  #view{padding-inline:16px;padding-bottom:96px}
+  .tablewrap.hide-m{display:none}
+  .cards{display:grid}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .dash-cols,.set-grid{grid-template-columns:1fr}
+  .route-track{grid-template-columns:1fr;min-width:0}
+  .station-h{grid-template-columns:auto 1fr;align-items:baseline;column-gap:10px}
+  .station-h .n{grid-row:span 2}
+  .station:not(.has) .mini-list{display:none}
+  fieldset{grid-template-columns:1fr}
+  .bottomnav{display:grid;grid-template-columns:repeat(7,1fr);position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--surface);border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom,0px))}
+  .bottomnav button{border:0;background:none;display:grid;justify-items:center;gap:2px;font-size:10.5px;font-weight:600;color:var(--muted);padding:4px 0}
+  .bottomnav button svg{width:21px;height:21px}
+  .bottomnav button[aria-current="page"]{color:var(--accent)}
+  .tl-row,.tl-axis{grid-template-columns:110px 1fr}
+  .tl-inner{min-width:520px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div id="login" hidden>
+  <form class="login-card" id="loginForm" autocomplete="on">
+    <div class="brand"><div class="brand-mark"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4M12 11v10"/></svg></div><div class="brand-name">Shipment Tracker</div></div>
+    <p style="margin:0;color:var(--muted)">Sign in to track POs, documents, transit, customs and 2nd release.</p>
+    <label>Username<input id="lu" name="username" type="text" autocomplete="username" required style="padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg)"></label>
+    <label>Password<input id="lp" name="password" type="password" autocomplete="current-password" required style="padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg)"></label>
+    <div class="err" id="loginErr"></div>
+    <button class="btn primary" type="submit" style="justify-content:center;padding:10px">Sign in</button>
+  </form>
+</div>
+
+<div id="app" hidden>
+  <aside class="rail">
+    <div class="brand"><div class="brand-mark"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4M12 11v10"/></svg></div><div class="brand-name">Shipment<br>Tracker</div></div>
+    <nav id="railnav"></nav>
+    <div class="rail-foot"><div id="whoami"></div><div id="syncState"></div><button class="btn small" id="logoutBtn" type="button">Sign out</button></div>
+  </aside>
+  <div class="main" id="main">
+    <header class="topbar">
+      <h1 id="viewTitle">Dashboard</h1>
+      <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="q" type="search" placeholder="Search Shipment ID, PO, invoice, AWB/BL…" aria-label="Search"></div>
+      <button class="iconbtn" id="bell" type="button" aria-label="Notifications"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 1112 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 004 0"/></svg><span class="dot" id="bellCount" hidden></span></button>
+      <button class="btn primary" id="newBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg><span class="lbl">New shipment</span></button>
+    </header>
+    <section id="view"></section>
+  </div>
+  <nav class="bottomnav" id="bottomnav"></nav>
+</div>
+<div id="overlay"></div>
+
+<script>
+(function(){
+"use strict";
+/* ================= constants ================= */
+const STAGES=["PO Placed","Supplier Confirmed","Documents Pending","Documents Dispatched","Documents Received","Import Permit Applied","Import Permit Approved","COA Received","Artwork Checked","Attestation Done","Booking from Transit","In Transit (ETD)","Arrived at Hub","Customs Clearance","Arrived at Final Country","Payment Settled","Under Analysis (2nd Release)","Completed / Released"];
+const DEFAULTS={
+  distributors:["Kepler","Aseel"],
+  groups:[
+    {name:"Rossmax",country:"China",ref:"No Need",coa:"No"},
+    {name:"Deva Holding",country:"Turkey",ref:"Required",coa:"Yes"},
+    {name:"Nobel",country:"Turkey",ref:"Required",coa:"Yes"},
+    {name:"Qlife",country:"Qatar",ref:"No Need",coa:"No"},
+    {name:"Aconitum",country:"Lithuania",ref:"No Need",coa:"Yes"},
+    {name:"Courier",country:"Kuwait",ref:"No Need",coa:"No"}
+  ],
+  suppliers:[
+    {name:"Rossmax",group:"Rossmax"},{name:"Deva Holding",group:"Deva Holding"},{name:"Nobel",group:"Nobel"},
+    {name:"Qlife",group:"Qlife"},{name:"Aconitum",group:"Aconitum"},{name:"Suha - Fedex",group:"Courier"}
+  ],
+  countries:["China","Turkey","Qatar","Lithuania","Kuwait","France","UAE","Jordan"],
+  lists:{
+    type:["Shipment","Documents","Reference Standard","Others"],
+    docs:["Pending","Docs Dispatched","Docs Received","Complete"],
+    payment:["Pending","Partial","Paid"],
+    method:["Air","Sea","Land"],
+    permit:["Required","Received","No Need"],
+    qty:["Full","Partial","No Need"],
+    artwork:["Yes","No","Waiting"],
+    attestation:["Yes","No","Pending"],
+    hub:["Dubai","Jordan","Other"],
+    refstd:["Required","No Need"],
+    coa:["Yes","No"]
+  },
+  listNames:{type:"Type",docs:"Supplier Documents status",payment:"Payment Status",method:"Shipping Method",permit:"Import Permit Status",qty:"Qty Checked",artwork:"Artwork Checked",attestation:"Attestation",hub:"Transit Hub",refstd:"Ref. Standard",coa:"COA"},
+  currency:"USD", analysisDays:7, etdDays:7, destCountry:"Kuwait",
+  auth:{user:"rony",pass:"rony1010"}
+};
+const R_STATUS=["Under Analysis","Released","On Hold","Cancelled"];
+const COLS=[
+  ["shipment_id","Shipment ID","text"],["initiated","Initiated Date","date"],["po","PO Number","text"],["supplier","Supplier","supplier"],["type","Type","list:type"],
+  ["supplier_inv","Supplier Invoice","text"],["distributor","Distributor","distributor"],["kepler_inv","Kepler Invoice","text"],
+  ["permit","Import Permit Status","list:permit"],["group","Group","group"],["product","Product / Description","text"],
+  ["qty","Qty Checked","list:qty"],["ref_std","Ref. Standard","list:refstd"],["country","Supplier Country","country"],["temp","Temp","text"],
+  ["docs","Supplier Documents","list:docs"],["coa","COA","list:coa"],["artwork","Artwork Checked","list:artwork"],["booking","Booking from Transit","date"],
+  ["attestation","Attestation","list:attestation"],["payment","Payment Status","list:payment"],["etd","ETD","date"],["shipped_date","Shipped from Supplier","date"],["hub_date","Arrived At Hub Status","date"],["hub_status","Hub Status ✓","computed"],
+  ["final_date","Arrived at Final Country","date"],["method","Shipping Method","list:method"],["tracking","Tracking / BL / AWB No.","text"],
+  ["clearance_inv","Clearance Inv No","text"],["value","Value","money"],["now_in","Now In (Country)","computed"],["stage","Stage Progress","stage"],["progress","Progress %","computed"],["second_release","2nd Release","toggle"]
+];
+const COLMAP=Object.fromEntries(COLS.map(c=>[c[0],c]));
+const PHASES=[
+  {k:"supplier",t:"At supplier",s:"PO & documents",c:"var(--muted)"},
+  {k:"booked",t:"Booked",s:"Waiting for ETD",c:"var(--warn)"},
+  {k:"transit",t:"In transit",s:"Departed, on the way",c:"var(--ok)"},
+  {k:"hub",t:"At transit hub",s:"Dubai / Jordan",c:"var(--ok)"},
+  {k:"customs",t:"Customs",s:"Clearance",c:"var(--ok)"},
+  {k:"arrived",t:"Arrived",s:"Final country",c:"var(--ok)"},
+  {k:"analysis",t:"Under analysis",s:"2nd release",c:"var(--warn)"},
+  {k:"done",t:"Completed",s:"Released",c:"var(--ok)"}
+];
+const KPIS=[
+  {k:"active",t:"Active shipments",s:"in Main Shipments",c:"var(--ink)",f:s=>inMain(s)},
+  {k:"moh",t:"MOH import permit received",s:"in Main Shipments",c:"var(--ok)",f:s=>inMain(s)&&s.permit==="Received"},
+  {k:"shipped",t:"Shipped from supplier",s:"on the way",c:"var(--ok)",f:s=>phase(s)==="transit"},
+  {k:"hub",t:"In hub",s:"Dubai / Jordan",c:"var(--ok)",f:s=>phase(s)==="hub"},
+  {k:"arrived",t:"Reached final destination",s:"incl. customs",c:"var(--ok)",f:s=>phase(s)==="arrived"||phase(s)==="customs"},
+  {k:"analysis",t:"Under analysis",s:"2nd release pending",c:"var(--warn)",f:s=>s.second_release&&!s.released&&!isDone(s)},
+  {k:"released",t:"Completed analysis",s:"released",c:"var(--ok)",f:s=>!!s.released||(s.second_release&&isDone(s))}
+];
+const ICONS={
+  dash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>',
+  main:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4M12 11v10"/></svg>',
+  release:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1.5 1.5 0 001.3 2h11.4a1.5 1.5 0 001.3-2l-5-10V3"/><path d="M7.5 14h9"/></svg>',
+  done:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg>',
+  jobs:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 10h6M9 14h6M9 18h3"/></svg>',
+  hub:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21V9l9-5 9 5v12"/><path d="M7 21v-8h10v8M7 17h10"/></svg>',
+  settings:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>'
+};
+function sha256(ascii){function rr(v,a){return(v>>>a)|(v<<(32-a))}var mp=Math.pow,mw=mp(2,32),i,j,result="",words=[],bl=ascii.length*8,hash=sha256.h=sha256.h||[],k=sha256.k=sha256.k||[],pc=k.length,isC={};
+for(var c=2;pc<64;c++){if(!isC[c]){for(i=0;i<313;i+=c)isC[i]=c;hash[pc]=(mp(c,.5)*mw)|0;k[pc++]=(mp(c,1/3)*mw)|0}}
+ascii+="\x80";while(ascii.length%64-56)ascii+="\x00";
+for(i=0;i<ascii.length;i++){j=ascii.charCodeAt(i);if(j>>8)return"";words[i>>2]|=j<<((3-i)%4)*8}
+words[words.length]=((bl/mw)|0);words[words.length]=bl;
+for(j=0;j<words.length;){var w=words.slice(j,j+=16),old=hash;hash=hash.slice(0,8);
+for(i=0;i<64;i++){var w15=w[i-15],w2=w[i-2],a=hash[0],e=hash[4];
+var t1=hash[7]+(rr(e,6)^rr(e,11)^rr(e,25))+((e&hash[5])^((~e)&hash[6]))+k[i]+(w[i]=(i<16)?w[i]:(w[i-16]+(rr(w15,7)^rr(w15,18)^(w15>>>3))+w[i-7]+(rr(w2,17)^rr(w2,19)^(w2>>>10)))|0);
+var t2=(rr(a,2)^rr(a,13)^rr(a,22))+((a&hash[1])^(a&hash[2])^(hash[1]&hash[2]));hash=[(t1+t2)|0].concat(hash);hash[4]=(hash[4]+t1)|0}
+for(i=0;i<8;i++)hash[i]=(hash[i]+old[i])|0}
+for(i=0;i<8;i++)for(j=3;j+1;j--){var b=(hash[i]>>(j*8))&255;result+=((b<16)?0:"")+b.toString(16)}return result}
+const pwHash=(id,pass)=>sha256(unescape(encodeURIComponent("shiptrack:"+id+":"+pass)));
+const MODS=[["dash","Dashboard"],["jobs","Job Open"],["main","Main Shipments"],["hub","In Hub"],["release","2nd Release"],["done","Completed"],["settings","Settings"]];
+const ALLMODS=MODS.map(m=>m[0]);
+function users(){const u=S.settings.users;if(Array.isArray(u)&&u.length)return u;const a=S.settings.auth||DEFAULTS.auth;return[{id:"u1",user:a.user,name:a.user,admin:true,modules:ALLMODS,legacy:true,pass:a.pass}]}
+function ensureUsers(){if(!Array.isArray(S.settings.users)||!S.settings.users.length){const L0=users()[0];S.settings.users=[{id:"u1",user:L0.user,name:L0.user==="rony"?"Rony":L0.user,admin:true,modules:ALLMODS,hash:pwHash("u1",L0.pass||"").slice(0,32)}];delete S.settings.auth}}
+function me(){const id=S.meId==="1"?"u1":S.meId;return id?users().find(u=>u.id===id)||null:null}
+const can=v=>{const m=me();return!!m&&(m.admin||(m.modules||[]).includes(v))};
+const VIEWS=[["dash","Dashboard"],["jobs","Job Open"],["main","Main Shipments"],["hub","In Hub"],["release","2nd Release"],["done","Completed"],["settings","Settings"]];
+
+/* ================= helpers ================= */
+const $=s=>document.querySelector(s);
+const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const pad=n=>String(n).padStart(2,"0");
+const ymd=d=>d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+const today=()=>ymd(new Date());
+const parse=s=>{const [y,m,d]=String(s).split("-").map(Number);return new Date(y,m-1,d)};
+const addDays=(s,n)=>{const d=parse(s);d.setDate(d.getDate()+n);return ymd(d)};
+const diff=(a,b)=>Math.round((parse(b)-parse(a))/864e5);
+const MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const fd=s=>{if(!s||!/^\d{4}-\d\d-\d\d$/.test(s))return s?esc(s):"";const d=parse(s);return d.getDate()+" "+MON[d.getMonth()]+" "+d.getFullYear()};
+const fds=s=>{if(!s)return"";const d=parse(s);return d.getDate()+" "+MON[d.getMonth()]};
+const money=v=>v===""||v==null||isNaN(+v)?"":new Intl.NumberFormat(undefined,{style:"currency",currency:S.settings.currency||"USD",maximumFractionDigits:2}).format(+v);
+function lsGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function lsSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+function lsDel(k){try{localStorage.removeItem(k)}catch(e){}}
+let toastT;
+function toast(msg){let t=$(".toast");if(!t){t=document.createElement("div");t.className="toast";t.setAttribute("role","status");document.body.appendChild(t)}t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2600)}
+
+/* ================= state ================= */
+const S={jobs:[],jobDraft:{},jobDel:null,jf:"",ships:[],settings:structuredClone(DEFAULTS),view:"dash",q:"",f:{},rf:{},showDone:false,relDone:false,mode:"connecting",sel:new Set(),rsort:"submitted",phase:null};
+function mergeSettings(stored){
+  const d=structuredClone(DEFAULTS);if(!stored)return d;
+  stored=JSON.parse(JSON.stringify(stored));
+  const o={...d,...stored};o.lists={...d.lists,...(stored.lists||{})};
+  if(!o.lists.permit.includes("Received"))o.lists.permit=[...o.lists.permit,"Received"];o.listNames=d.listNames;o.auth={...d.auth,...(stored.auth||{})};if(Array.isArray(stored.users)&&stored.users.length)delete o.auth;return o;
+}
+const L=k=>S.settings.lists[k]||[];
+
+/* ================= data layer ================= */
+let db=null;
+const LOCAL_KEY="shiptrack-local-v1";
+async function initData(){
+  try{
+    if(window.claude&&typeof window.claude.use==="function"){
+      db=await Promise.race([window.claude.use("db"),new Promise(r=>setTimeout(()=>r(null),10000))]);
+    }
+  }catch(e){db=null}
+  if(db){
+    S.mode="db";
+    db.collection("shipments").onSnapshot(snap=>{S.ships=snap.docs.map(d=>({...JSON.parse(JSON.stringify(d.data()||{})),_id:d.id}));S.loaded=true;render()},err=>{toast("Live sync stopped: "+(err&&err.message||"unavailable"));});
+    db.collection("jobs").onSnapshot(snap=>{S.jobs=snap.docs.map(d=>({...JSON.parse(JSON.stringify(d.data()||{})),_id:d.id}));render()},()=>{});
+    db.collection("settings").onSnapshot(snap=>{const docs={};snap.docs.forEach(d=>{docs[d.id]=JSON.parse(JSON.stringify(d.data()||{}))});S._parts={};Object.entries(docs).forEach(([k,v])=>S._parts[k]=JSON.stringify(v));S.settings=mergeSettings(joinSettings(docs));S.setLoaded=true;render()},()=>{S.setLoaded=true});
+  }else{
+    S.mode="local";
+    try{const raw=JSON.parse(lsGet(LOCAL_KEY)||"null");if(raw){S.ships=raw.ships||[];S.jobs=raw.jobs||[];S.settings=mergeSettings(raw.settings)}}catch(e){}
+    S.setLoaded=true;
+    S.loaded=true;
+  }
+  render();
+}
+function saveLocal(){lsSet(LOCAL_KEY,JSON.stringify({ships:S.ships,jobs:S.jobs,settings:S.settings}))}
+function writeErr(e){
+  const c=e&&e.code;
+  if(c==="invalid_argument")toast("You have view-only access, so changes can't be saved.");
+  else if(c==="quota_exceeded")toast("Storage is full. Delete old shipments and try again.");
+  else toast("Couldn't save: "+((e&&e.message)||"try again"));
+}
+const MAXB=1024,DROP=new Set(["_id","progress"]);
+function compact(o){const r={};for(const[k,v]of Object.entries(o)){if(DROP.has(k)||v===""||v===null||v===undefined||v===false)continue;if(Array.isArray(v)&&!v.length)continue;r[k]=v}return r}
+const bytes=o=>new TextEncoder().encode(JSON.stringify(o)).length;
+async function persist(s){
+  const was=S.ships.find(x=>x._id===s._id);
+  if(was&&!inHub(was)&&inHub(s))setTimeout(()=>toast(s.shipment_id+" is now in the In Hub tab ("+s.transit_hub+") for completion"),300);
+  else if(!was&&inHub(s))setTimeout(()=>toast(s.shipment_id+" added to the In Hub tab ("+s.transit_hub+")"),300);
+  const body=compact(JSON.parse(JSON.stringify(s)));body.updated=Date.now();
+  if(bytes(body)>MAXB){toast("Not saved: "+(s.shipment_id||"this record")+" would be over 1 KB. Shorten the remarks or long text fields.");render(true);return}
+  const i=S.ships.findIndex(x=>x._id===s._id);if(i>=0)S.ships[i]={...body,_id:s._id};else S.ships.push({...body,_id:s._id});
+  render();
+  if(S.mode==="db"){try{await db.collection("shipments").doc(s._id).set(body)}catch(e){writeErr(e)}}else saveLocal();
+}
+async function persistJob(j){
+  const body=compact(JSON.parse(JSON.stringify(j)));body.updated=Date.now();
+  if(bytes(body)>MAXB){toast("Not saved: job would be over 1 KB. Shorten the text.");render(true);return}
+  const i=S.jobs.findIndex(x=>x._id===j._id);if(i>=0)S.jobs[i]={...body,_id:j._id};else S.jobs.push({...body,_id:j._id});
+  render();
+  if(S.mode==="db"){try{await db.collection("jobs").doc(j._id).set(body)}catch(e){writeErr(e)}}else saveLocal();
+}
+async function removeJob(id){
+  S.jobs=S.jobs.filter(x=>x._id!==id);render();
+  if(S.mode==="db"){try{await db.collection("jobs").doc(id).delete()}catch(e){writeErr(e)}}else saveLocal();
+}
+async function removeShip(id){
+  S.ships=S.ships.filter(x=>x._id!==id);render();
+  if(S.mode==="db"){try{await db.collection("shipments").doc(id).delete()}catch(e){writeErr(e)}}else saveLocal();
+}
+let setT;
+const PREF_KEYS=["currency","analysisDays","etdDays","destCountry"];
+function splitSettings(st){
+  const out={prefs:{v:2}};PREF_KEYS.forEach(k=>{if(st[k]!==undefined)out.prefs[k]=st[k]});
+  const arr=(name,a)=>{let chunk=[],i=0,size=0;(a||[]).forEach(it=>{const sz=bytes(it)+1;if(chunk.length&&size+sz>800){out[name+"~"+i]={items:chunk};i++;chunk=[];size=0}chunk.push(it);size+=sz});out[name+"~"+i]={items:chunk}};
+  arr("suppliers",st.suppliers);arr("groups",st.groups);arr("distributors",st.distributors);arr("countries",st.countries);
+  Object.keys(st.lists||{}).forEach(k=>arr("list."+k,st.lists[k]));
+  if(Array.isArray(st.users)&&st.users.length)arr("users",st.users);
+  return out;
+}
+function joinSettings(docs){
+  if(!docs.prefs)return docs.master||null;
+  const o={...docs.prefs},lists={},ch={};
+  Object.entries(docs).forEach(([id,d])=>{const m=id.match(/^(.+)~(\d+)$/);if(m){(ch[m[1]]=ch[m[1]]||[])[+m[2]]=(d&&d.items)||[]}});
+  Object.entries(ch).forEach(([name,parts])=>{const all=[].concat(...parts.filter(Boolean));if(name.startsWith("list."))lists[name.slice(5)]=all;else o[name]=all});
+  if(Object.keys(lists).length)o.lists=lists;
+  return o;
+}
+S._parts={};
+function saveSettings(){
+  const ae=document.activeElement;if(ae&&$("#view").contains(ae))ae.blur();
+  render(true);
+  clearTimeout(setT);
+  setT=setTimeout(async()=>{
+    const body=JSON.parse(JSON.stringify(S.settings));delete body.listNames;if(Array.isArray(body.users)&&body.users.length)delete body.auth;
+    if(S.mode==="db"){
+      const out=splitSettings(body);
+      try{
+        for(const[id,doc]of Object.entries(out)){const js=JSON.stringify(doc);if(S._parts[id]!==js){await db.doc("settings/"+id).set(doc);S._parts[id]=js}}
+        for(const id of Object.keys(S._parts)){if(!(id in out)){await db.doc("settings/"+id).delete();delete S._parts[id]}}
+      }catch(e){writeErr(e)}
+    }else saveLocal();
+  },400);
+}
+const newId=()=>"s"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+
+/* ================= business logic ================= */
+function autoStage(s){
+  const t=today();let d=1;
+  if(s.supplier_inv)d=2;
+  if(s.permit==="Received")d=Math.max(d,7);
+  const docs={"Pending":3,"Docs Dispatched":4,"Docs Received":5,"Complete":5}[s.docs];if(docs)d=Math.max(d,docs);
+  if(s.artwork==="Yes")d=Math.max(d,9);
+  if(s.attestation==="Yes")d=Math.max(d,10);
+  if(s.booking)d=Math.max(d,11);
+  if((s.etd&&s.etd<=t)||(s.shipped_date&&s.shipped_date<=t))d=Math.max(d,12);
+  if(s.hub_date&&s.hub_date<=t)d=Math.max(d,13);
+  if(s.final_date&&s.final_date<=t)d=Math.max(d,15);
+  if(s.final_date&&s.final_date<=t&&s.payment==="Paid")d=Math.max(d,16);
+  if(s.second_release)d=Math.max(d,17);
+  if(s.released)d=18;
+  return d;
+}
+function progress(s){
+  const st=+s.stage||1;
+  if(st>=18)return 100;
+  if(s.second_release&&!s.released)return 90;
+  if(st===14)return 75;
+  if(st>=11&&st<=13)return 50;
+  const base=Math.round(st/18*100);
+  if(s.payment==="Paid"&&(s.docs==="Docs Received"||s.docs==="Complete")&&base<30)return 30;
+  return base;
+}
+function tone(s){
+  if(s.flag==="cancelled")return"red";
+  if(s.flag==="hold")return"orange";
+  if(+s.stage>=18)return"green";
+  if(s.second_release&&!s.released)return"yellow";
+  if(+s.stage>=11&&+s.stage<=15)return"green";
+  if(s.final_date&&s.final_date<=today())return"green";
+  return"";
+}
+const isDone=s=>+s.stage>=18;
+const inMain=s=>!isDone(s)&&!s.second_release&&!inHub(s);
+const inRelease=s=>!!s.second_release&&!isDone(s);
+function phase(s){
+  const t=today(),st=+s.stage||1;
+  if(isDone(s)||s.released)return"done";
+  if(s.second_release)return"analysis";
+  if(st===14)return"customs";
+  if((s.final_date&&s.final_date<=t)||st>=15)return"arrived";
+  if((s.hub_date&&s.hub_date<=t)||st===13)return"hub";
+  if((s.shipped_date&&s.shipped_date<=t)||(s.etd&&s.etd<=t)||st===12)return"transit";
+  if(s.etd||s.booking||st===11)return"booked";
+  return"supplier";
+}
+function whereText(s){
+  const t=today(),p=phase(s);
+  switch(p){
+    case"supplier":return s.docs?("Docs: "+s.docs):"Awaiting documents";
+    case"booked":return s.etd?("ETD "+fds(s.etd)+" · in "+diff(t,s.etd)+"d"):"Booking "+(fd(s.booking)||"made");
+    case"transit":{const dep=s.shipped_date||s.etd;return(s.method?s.method+" · ":"")+(dep?"shipped "+fds(dep)+" · day "+diff(dep,t):"on the way")}
+    case"hub":return(s.transit_hub||"Hub")+(s.hub_date?" since "+fds(s.hub_date):"");
+    case"customs":return"In clearance";
+    case"arrived":return"Arrived "+destOf(s)+(s.final_date?" "+fds(s.final_date):"");
+    case"analysis":return s.date_submitted?("Submitted "+fds(s.date_submitted)+" · "+diff(s.date_submitted,t)+"d"):"Not submitted yet";
+    case"done":return s.release_date?"Released "+fds(s.release_date):"Completed";
+  }
+}
+function payBadge(v){if(!v)return'<span class="badge b-muted">—</span>';const c={Pending:"b-bad",Partial:"b-warn",Paid:"b-ok"}[v]||"b-muted";return`<span class="badge ${c}">${esc(v)}</span>`}
+function relBadge(s){
+  const st=s.r_status||"Under Analysis";const c={"Under Analysis":"b-warn",Released:"b-ok","On Hold":"b-warn",Cancelled:"b-bad"}[st]||"b-muted";
+  return`<span class="badge ${c}">${esc(st)}</span>`;
+}
+function stageLabel(s){const st=+s.stage||1;return st+" · "+STAGES[st-1]}
+function nextShipmentId(){let m=0;S.ships.forEach(s=>{const n=parseInt(String(s.shipment_id||"").replace(/\D/g,""),10);if(n>m)m=n});return"SHP-"+String(m+1).padStart(3,"0")}
+function cmpShip(a,b){return String(a.shipment_id||"").localeCompare(String(b.shipment_id||""),undefined,{numeric:true})||(a.created||0)-(b.created||0)}
+
+/* release automation */
+function applyRelease(s,patch){
+  Object.assign(s,patch);
+  if("second_release"in patch){
+    if(s.second_release){if(!s.r_status)s.r_status="Under Analysis";if(!s.arrival_date&&s.final_date)s.arrival_date=s.final_date;s.stage=Math.max(+s.stage||1,17)}
+    else{if(!s.released&&+s.stage===17)s.stage=Math.min(16,autoStage({...s,second_release:false}))}
+  }
+  if("date_submitted"in patch&&s.date_submitted&&!s.released&&s.r_status!=="On Hold"&&s.r_status!=="Cancelled")s.r_status="Under Analysis";
+  if("released"in patch){
+    if(s.released){
+      if(s.payment&&s.payment!=="Paid")toast("Heads up: payment is still "+s.payment+" for "+s.shipment_id);
+      s.r_status="Released";s.completion="Completed";s.release_date=today();s.stage=18;if(s.flag==="hold")s.flag="";
+    }else{s.r_status="Under Analysis";s.completion="";s.release_date="";s.stage=17}
+  }
+  if("r_status"in patch){
+    if(s.r_status==="Released"&&!s.released){s.released=true;s.completion="Completed";s.release_date=today();s.stage=18}
+    if(s.r_status!=="Released"&&s.released&&!("released"in patch)){s.released=false;s.completion="";s.release_date="";s.stage=17}
+    s.flag=s.r_status==="On Hold"?"hold":s.r_status==="Cancelled"?"cancelled":(s.flag==="hold"||s.flag==="cancelled"?"":s.flag);
+  }
+  if("stage"in patch&&+s.stage===18&&s.second_release&&!s.released){s.released=true;s.r_status="Released";s.completion="Completed";s.release_date=today()}
+  return s;
+}
+
+/* alerts */
+function permitReady(){return S.ships.filter(s=>inMain(s)&&s.permit==="Received"&&s.flag!=="cancelled").sort((a,b)=>String(b.permit_date||"").localeCompare(String(a.permit_date||""))||cmpShip(a,b))}
+function alerts(){
+  const t=today(),out=[],st=S.settings;
+  permitReady().forEach(s=>out.push({lvl:"good",id:s._id,txt:"MOH import permit received: choose Transit Hub"+(s.supplier_inv?" · Inv "+s.supplier_inv:"")+(s.distributor?" · "+s.distributor:""),sub:(s.shipment_id||"—")+" · "+(s.product||s.supplier||""),o:0}));
+  S.ships.forEach(s=>{
+    if(isDone(s)||s.flag==="cancelled")return;
+    const id=s._id,label=(s.shipment_id||"—")+" · "+(s.product||s.supplier||"");
+    if(s.etd&&s.etd>t&&diff(t,s.etd)<=st.etdDays)out.push({lvl:"info",id,txt:"ETD in "+diff(t,s.etd)+" day"+(diff(t,s.etd)===1?"":"s"),sub:label,o:1});
+    if(s.etd&&s.etd<=t&&!s.final_date&&!s.second_release&&diff(s.etd,t)>=14)out.push({lvl:"warn",id,txt:"Departed "+diff(s.etd,t)+" days ago, no arrival recorded",sub:label,o:2});
+    if((!s.docs||s.docs==="Pending")&&s.type!=="Documents")out.push({lvl:"warn",id,txt:"Supplier documents pending",sub:label,o:4});
+    if((s.payment==="Pending"||s.payment==="Partial")&&(+s.stage>=12||s.final_date))out.push({lvl:"bad",id,txt:"Payment "+s.payment.toLowerCase()+" after dispatch",sub:label,o:3});
+    if(s.second_release&&!s.released){
+      if(!s.date_submitted)out.push({lvl:"warn",id,txt:"2nd release: analysis not submitted",sub:label,o:2});
+      else if(diff(s.date_submitted,t)>st.analysisDays)out.push({lvl:"bad",id,txt:"Under analysis for "+diff(s.date_submitted,t)+" days",sub:label,o:1});
+      if(!s.arrival_date&&!s.final_date)out.push({lvl:"warn",id,txt:"Under analysis but arrival date missing",sub:label,o:3});
+      if(s.payment==="Pending")out.push({lvl:"bad",id,txt:"Payment pending ahead of release",sub:label,o:3});
+    }
+  });
+  const rank={good:0,bad:1,warn:2,info:3};
+  return out.sort((a,b)=>rank[a.lvl]-rank[b.lvl]||a.o-b.o);
+}
+
+/* search & filters */
+function matchQ(s){
+  const q=S.q.trim().toLowerCase();if(!q)return true;
+  return["shipment_id","po","supplier_inv","kepler_inv","clearance_inv","tracking","product","supplier"].some(k=>String(s[k]||"").toLowerCase().includes(q));
+}
+function filtered(list,f){
+  return list.filter(s=>matchQ(s)&&Object.entries(f).every(([k,v])=>{
+    if(!v)return true;
+    if(k==="stage")return String(+s.stage||1)===v;
+    if(k==="phase")return phase(s)===v;
+    if(k==="r_status")return(s.r_status||"Under Analysis")===v;
+    if(k==="sub_from")return s.date_submitted&&s.date_submitted>=v;
+    if(k==="sub_to")return s.date_submitted&&s.date_submitted<=v;
+    if(k==="arr_from")return(s.arrival_date||s.final_date)&&(s.arrival_date||s.final_date)>=v;
+    if(k==="arr_to")return(s.arrival_date||s.final_date)&&(s.arrival_date||s.final_date)<=v;
+    return(s[k]||"")===v;
+  }));
+}
+function opts(list,val,blank="—"){
+  const arr=[...list];if(val&&!arr.includes(val))arr.push(val);
+  return(blank!==null?`<option value="">${esc(blank)}</option>`:"")+arr.map(v=>`<option value="${esc(v)}"${v===val?" selected":""}>${esc(v)}</option>`).join("");
+}
+const uniq=a=>[...new Set(a.filter(Boolean))].sort();
+
+/* ================= render ================= */
+let pendingRender=false;
+function render(force){
+  computeSeq();
+  if($("#app").hidden)return;
+  const ae=document.activeElement;
+  if(!force&&ae&&$("#view").contains(ae)&&(ae.matches("input[type=text],input:not([type]),textarea,input[type=number]"))){pendingRender=true;return}
+  pendingRender=false;
+  const M=me();
+  if(!M){if(S.setLoaded){signOut("Your account was removed or changed. Please sign in again.");return}$("#view").innerHTML='<div class="empty">Loading…</div>';return}
+  if(!can(S.view)){const first=VIEWS.find(([k])=>can(k));if(!first){$("#view").innerHTML='<div class="empty"><b>No sections assigned</b><span>Ask an admin to grant you access in Settings → Users &amp; access.</span></div>';return}S.view=first[0]}
+  $("#newBtn").hidden=!can("main");
+  const counts={jobs:S.jobs.filter(j=>jobStatus(j)[0]==="Open").length,main:S.ships.filter(inMain).length,hub:hubList(false).filter(s=>!s.fwd_ok).length,release:S.ships.filter(inRelease).length,done:S.ships.filter(isDone).length};
+  const navHtml=(withCount)=>VIEWS.filter(([k])=>can(k)).map(([k,t])=>`<button class="navbtn" type="button" data-nav="${k}"${S.view===k?' aria-current="page"':""}>${ICONS[k]}<span>${t}</span>${withCount&&counts[k]!=null?`<span class="count">${counts[k]}</span>`:""}</button>`).join("");
+  $("#railnav").innerHTML=navHtml(true);
+  $("#bottomnav").style.gridTemplateColumns="repeat("+VIEWS.filter(([k])=>can(k)).length+",1fr)";
+  $("#bottomnav").innerHTML=VIEWS.filter(([k])=>can(k)).map(([k,t])=>`<button type="button" data-nav="${k}"${S.view===k?' aria-current="page"':""}>${ICONS[k]}<span>${({dash:"Home",jobs:"Jobs",main:"Shipments",hub:"In Hub",release:"Release",done:"Done",settings:"Settings"})[k]||t}</span></button>`).join("");
+  $("#viewTitle").textContent=VIEWS.find(v=>v[0]===S.view)[1];
+  $("#whoami").innerHTML=`Signed in as <b>${esc(M.name||M.user)}</b>${M.admin?' <span class="badge b-info">Admin</span>':""}`;
+  $("#syncState").innerHTML=S.mode==="db"?'<span class="badge b-ok">Live sync on</span>':S.mode==="local"?'<span class="badge b-warn">This device only</span>':'<span class="badge b-muted">Connecting…</span>';
+  const al=alerts();const bc=$("#bellCount");bc.hidden=!al.length;bc.textContent=al.length>99?"99+":al.length;
+  const v=$("#view");
+  let h="";
+  if(S.mode==="local")h+=`<div class="banner">Shipment tracker.</div>`;
+  if(S.view==="dash")h+=viewDash(al);
+  else if(S.view==="main")h+=viewMain(false);
+  else if(S.view==="done")h+=viewMain(true);
+  else if(S.view==="jobs")h+=viewJobs();
+  else if(S.view==="hub")h+=viewHub();
+  else if(S.view==="release")h+=viewRelease();
+  else h+=viewSettings();
+  v.innerHTML=h;
+}
+
+/* ---------- dashboard ---------- */
+function viewDash(al){
+  const t=today(),live=S.ships.filter(s=>s.flag!=="cancelled");
+  const ids=f=>new Set(live.filter(f).map(s=>s.shipment_id)).size;
+  const byPhase={};PHASES.forEach(p=>byPhase[p.k]=[]);
+  live.filter(matchQ).forEach(s=>byPhase[phase(s)].push(s));
+  Object.values(byPhase).forEach(a=>a.sort(cmpShip));
+  if(!S.ships.length&&S.loaded)return`<div class="empty"><b>No shipments yet</b><span>Add your first PO with “New shipment”. Set up suppliers and groups in Settings first so Group, Country, Ref. Standard and COA fill in automatically.</span><button class="btn primary" type="button" data-act="new">New shipment</button></div>`;
+  if(!S.loaded)return`<div class="empty">Loading shipments…</div>`;
+  const dnow=new Date();
+  let h=`<div class="panel-h"><div><div class="eyebrow">${["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][dnow.getDay()]} · ${fd(t)}</div><h2 style="font-size:24px">Where every shipment is today</h2></div><div class="legend"><span>${S.ships.length} line items · ${new Set(S.ships.map(s=>s.shipment_id)).size} shipment IDs</span></div></div>`;
+  const kpiOn=KPIS.find(k=>k.k===S.kpi)||KPIS[0];
+  const pr=permitReady().filter(matchQ);
+  if(pr.length)h+=`<div class="permit-alert" role="status"><div class="pa-h"><span class="pa-icon">✓</span><div><b>MOH import permit received · ${pr.length} shipment${pr.length===1?"":"s"} in Main Shipments</b><span>Arrange the shipment with the Supplier Invoice and Distributor below. Choose the Transit Hub and it moves to In Hub (and off this list).</span></div><button class="btn small" type="button" data-nav="main">Open Main Shipments</button></div>
+    <div class="pa-list">${pr.map(s=>`<div class="pa-item"><div class="pa-top"><span class="mono" style="font-weight:700">${esc(s.shipment_id)}</span>${typeTag(s.type)}<span class="pa-date">${s.permit_date?"Confirmed "+fd(s.permit_date):"Confirmed"}</span></div><div class="prod" style="font-weight:650">${esc(s.product||"—")}</div>
+      <dl class="kv"><dt>Supplier Invoice</dt><dd class="mono"><b>${esc(s.supplier_inv||"Not entered")}</b></dd><dt>Distributor</dt><dd><b>${esc(s.distributor||"Not entered")}</b></dd><dt>Supplier</dt><dd>${esc(s.supplier||"—")}</dd><dt>Hub</dt><dd>${s.transit_hub?esc(s.transit_hub)+(s.hub_date?" · "+fd(s.hub_date):" · expected"):"Not set"}</dd><dt>Kepler inv.</dt><dd>${keplerLink(s)}</dd></dl>
+      <div class="pa-next">Next: choose the Transit Hub (${esc(L("hub").join(" / "))}) to move it to In Hub</div><label class="pa-hub">Transit Hub <select class="ce" id="pah_${esc(s._id)}" data-c="${esc(s._id)}" data-k="transit_hub">${opts(L("hub"),"","Choose…")}</select></label></div>`).join("")}</div></div>`;
+  h+=`<div class="kpis">${KPIS.map(k=>{const items=live.filter(k.f);return`<button type="button" class="kpi${k.k===kpiOn.k?" on":""}" data-kpi="${k.k}" style="--kc:${k.c}" aria-pressed="${k.k===kpiOn.k}"><span>${k.t}</span><b>${new Set(items.map(s=>s.shipment_id)).size}</b><span>${k.s} · ${items.length} line${items.length===1?"":"s"}</span></button>`}).join("")}</div>`;
+  const kl=live.filter(kpiOn.f).filter(matchQ).sort(cmpShip);
+  h+=`<div class="panel"><div class="panel-h"><h2>${esc(kpiOn.t)}</h2><span class="eyebrow">${kl.length} line item${kl.length===1?"":"s"} · tap a tile above to switch</span></div>`;
+  if(!kl.length)h+=`<div class="empty">No shipments in “${esc(kpiOn.t)}” right now.</div>`;
+  else{
+    h+=`<div class="tablewrap hide-m" style="max-height:420px"><table class="grid"><thead><tr><th class="stick">Shipment ID</th><th>Product / Description</th><th>Kepler Invoice</th><th>Group</th><th>Supplier</th><th>Distributor</th><th>Where now</th><th>Shipped</th><th>Arrived</th><th>Payment</th></tr></thead><tbody>${kl.map(s=>`<tr class="tone-${tone(s)}" data-open="${esc(s._id)}"><td class="stick mono">${esc(s.shipment_id)}</td><td>${esc(s.product)}</td><td>${keplerLink(s)}</td><td>${esc(s.group)}</td><td>${supCell(s)}</td><td>${esc(s.distributor||"—")}</td><td><b style="color:${PHASES.find(p=>p.k===phase(s)).c}">${esc(PHASES.find(p=>p.k===phase(s)).t)}</b> · ${esc(whereText(s))}</td><td>${fd(s.shipped_date||(s.etd&&s.etd<=t?s.etd:""))}</td><td>${fd(s.final_date)}</td><td class="paycell ${esc(s.payment||"")}">${esc(s.payment||"")}</td></tr>`).join("")}</tbody></table></div>`;
+    h+=`<div class="cards">${kl.map(s=>`<div class="card tone-${tone(s)}" data-open="${esc(s._id)}"><div class="card-h"><b>${esc(s.shipment_id)}</b>${payBadge(s.payment)}</div><div class="prod">${esc(s.product||"—")}</div><dl class="kv"><dt>Kepler inv.</dt><dd>${keplerLink(s)}</dd><dt>Group</dt><dd>${esc(s.group||"—")}</dd><dt>Supplier</dt><dd>${esc(s.supplier||"—")} ${seqOf(s)?`<span class="seq">${seqOf(s).n}-${seqOf(s).t}</span>`:""}</dd><dt>Distributor</dt><dd>${esc(s.distributor||"—")}</dd></dl><div class="meta"><b style="color:${PHASES.find(p=>p.k===phase(s)).c}">${esc(PHASES.find(p=>p.k===phase(s)).t)}</b><span>${esc(whereText(s))}</span></div></div>`).join("")}</div>`;
+  }
+  h+=`</div>`;
+  // route board
+  h+=`<div class="panel"><div class="panel-h"><h2>Route board</h2><span class="eyebrow">Supplier → transit → final country → release</span></div><div class="route"><div class="route-track">`;
+  PHASES.forEach(p=>{
+    const items=byPhase[p.k];
+    h+=`<div class="station${items.length?" has":""}" style="--sc:${p.c}"><div class="station-h"><span class="n">${items.length}</span><span class="t">${p.t}</span><span class="s">${p.s}</span></div><div class="mini-list" style="display:grid;gap:6px">`;
+    const lim=p.k==="done"?4:5,open=S.more&&S.more[p.k];
+    const show=p.k==="done"?items.slice(-4):(open?items:items.slice(0,lim));
+    show.forEach(s=>{h+=`<div class="mini" data-open="${esc(s._id)}" role="button" tabindex="0"><span class="id"><span>${esc(s.shipment_id)}</span>${s.type?`<span style="color:${TYPEC[s.type]||"var(--muted)"};font-weight:700">${esc(s.type==="Reference Standard"?"Ref. Std":s.type)}</span>`:""}</span><span class="p">${esc(s.product||"—")}</span><dl class="kv"><dt>Kepler</dt><dd>${keplerLink(s)}</dd><dt>Group</dt><dd>${esc(s.group||"—")}</dd><dt>Supplier</dt><dd>${esc(s.supplier||"—")} ${seqOf(s)?`<span class="seq">${seqOf(s).n}-${seqOf(s).t}</span>`:""}</dd><dt>Distrib.</dt><dd>${esc(s.distributor||"—")}</dd></dl>${s.flag==="hold"?'<b style="color:var(--warn)">On hold</b>':""}<span class="w">${esc(whereText(s))}</span></div>`});
+    if(p.k!=="done"&&items.length>lim)h+=`<button class="btn small" type="button" data-act="more" data-k="${p.k}">${open?"Show less":"Show "+(items.length-lim)+" more"}</button>`;
+    if(p.k==="done"&&items.length>4)h+=`<button class="btn small" type="button" data-nav="done">All ${items.length} completed</button>`;
+    h+=`</div></div>`;
+  });
+  h+=`</div></div></div>`;
+  // timeline + alerts
+  h+=`<div class="dash-cols"><div class="panel">${timeline(live)}</div><div style="display:grid;gap:18px">`;
+  h+=`<div class="panel"><div class="panel-h"><h2>Needs attention</h2><span class="eyebrow">${al.length} alert${al.length===1?"":"s"}</span></div><div class="alerts">${al.slice(0,8).map(a=>`<div class="alert ${a.lvl}" data-open="${esc(a.id)}" role="button" tabindex="0"><i></i><span>${esc(a.txt)}</span><small>${esc(a.sub)}</small></div>`).join("")||'<div style="color:var(--muted)">Nothing needs attention.</div>'}${al.length>8?`<button class="btn small" type="button" data-act="bell">Show all ${al.length}</button>`:""}</div></div>`;
+  const act=live.filter(s=>!isDone(s));const pc={Pending:0,Partial:0,Paid:0,"":0};const pv={Pending:0,Partial:0,Paid:0,"":0};
+  act.forEach(s=>{const k=s.payment||"";pc[k]=(pc[k]||0)+1;pv[k]=(pv[k]||0)+(+s.value||0)});
+  const mx=Math.max(1,...Object.values(pc));
+  h+=`<div class="panel"><div class="panel-h"><h2>Payments</h2><span class="eyebrow">active line items</span></div><div class="paysum">${[["Pending","var(--bad)"],["Partial","var(--warn)"],["Paid","var(--ok)"],["","var(--line)"]].map(([k,c])=>`<div class="payrow"><span>${k||"Not set"}</span><div class="bar" style="height:8px"><i style="width:${pc[k]/mx*100}%;background:${c}"></i></div><span class="num">${pc[k]}${pv[k]?` · ${money(pv[k])}`:""}</span></div>`).join("")}</div></div>`;
+  h+=`</div></div>`;
+  return h;
+}
+function timeline(list){
+  const t=today(),start=addDays(t,-60),end=addDays(t,30),span=diff(start,end);
+  const pos=d=>Math.max(0,Math.min(100,diff(start,d)/span*100));
+  const rows=list.filter(s=>(s.etd||s.booking||s.hub_date||s.final_date)).filter(s=>{
+    const a=s.booking||s.etd||s.hub_date||s.final_date,b=s.final_date||s.hub_date||s.etd||a;
+    return!(b<start&&isDone(s))&&!(a>end);
+  }).sort((a,b)=>String(a.etd||a.booking||"").localeCompare(String(b.etd||b.booking||"")));
+  let ticks="";for(let i=0;i<=span;i++){const d=addDays(start,i),dd=parse(d).getDate();if(dd===1||dd===15)ticks+=`<span style="left:${pos(d)}%">${fds(d)}</span>`}
+  ticks+=`<span class="today" style="left:${pos(t)}%;top:-14px">Today</span>`;
+  let h=`<div class="panel-h"><h2>Dates timeline</h2><span class="eyebrow">${fds(start)} – ${fds(end)}</span></div>`;
+  if(!rows.length)return h+`<div class="empty">No ETD, hub or arrival dates yet. Add an ETD to a shipment and it appears here.</div>`;
+  h+=`<div class="legend"><span><i style="background:var(--info)"></i>ETD</span><span><i style="background:var(--violet);border-radius:2px"></i>Arrived at hub</span><span><i style="background:var(--ok);border-radius:3px"></i>Arrived final country</span><span><i style="background:var(--accent);width:2px;border-radius:0"></i>Today</span></div>`;
+  h+=`<div class="timeline"><div class="tl-inner"><div class="tl-axis"><span></span><div class="tl-ticks">${ticks}</div></div>`;
+  rows.forEach(s=>{
+    const a=s.shipped_date||s.etd||s.booking,fin=s.final_date;
+    let bar="";
+    if(a){const b=fin||(a<=t?t:null);if(b){const l=pos(a),r=pos(b);bar=`<div class="tl-bar ${fin?(isDone(s)?"done":""):"open"}" style="left:${l}%;width:${Math.max(.6,r-l)}%"></div>`}}
+    let m="";
+    if(s.etd)m+=`<span class="tl-m etd${s.etd>t?" future":""}" style="left:${pos(s.etd)}%" title="ETD ${fd(s.etd)}"></span>`;
+    if(s.hub_date)m+=`<span class="tl-m hub" style="left:${pos(s.hub_date)}%" title="Hub ${fd(s.hub_date)}"></span>`;
+    if(fin)m+=`<span class="tl-m fin" style="left:${pos(fin)}%" title="Arrived ${fd(fin)}"></span>`;
+    h+=`<div class="tl-row" data-open="${esc(s._id)}" role="button" tabindex="0"><div class="tl-lab"><b>${esc(s.shipment_id)} · ${esc(s.method||"")}</b><span>${esc(s.product||s.supplier||"")}</span></div><div class="tl-track"><div class="tl-today" style="left:${pos(t)}%"></div>${bar}${m}</div></div>`;
+  });
+  return h+`</div></div>`;
+}
+
+/* ---------- main / completed ---------- */
+const phaseOf=s=>PHASES.find(p=>p.k===phase(s));
+const HUBC={Dubai:"UAE",Jordan:"Jordan"};
+const destOf=s=>s.final_country||S.settings.destCountry||"final country";
+function nowIn(s){
+  const p=phase(s),hubc=s.transit_hub?(HUBC[s.transit_hub]||s.transit_hub):"";
+  if(s.flag==="cancelled")return"Cancelled";
+  if(p==="supplier"||p==="booked")return s.country||"At supplier";
+  if(p==="transit")return(s.country?s.country+" → ":"")+(hubc||destOf(s));
+  if(p==="hub")return hubc||"Transit hub";
+  return destOf(s);
+}
+function keplerLink(s,empty="—"){return s.kepler_inv?`<button type="button" class="klink mono" data-track="${esc(s._id)}" title="Open tracking for ${esc(s.kepler_inv)}">${esc(s.kepler_inv)}</button>`:`<button type="button" class="klink knone" data-track="${esc(s._id)}" title="Open tracking">${empty}</button>`}
+/* per-supplier numbering by date: earliest arrival/ETD first */
+let SEQ={};
+function computeSeq(){
+  SEQ={};const by={};
+  const key=s=>s.final_date||s.hub_date||s.shipped_date||s.etd||s.booking||s.initiated||"9999-99-99";
+  S.ships.forEach(s=>{if(!s.supplier||s.flag==="cancelled")return;const sup=by[s.supplier]=by[s.supplier]||{};const id=s.shipment_id||s._id;const k=key(s);if(!sup[id]||k<sup[id])sup[id]=k});
+  Object.entries(by).forEach(([sup,m])=>{const ids=Object.keys(m).sort((a,b)=>m[a].localeCompare(m[b])||a.localeCompare(b,undefined,{numeric:true}));ids.forEach((id,i)=>SEQ[sup+"|"+id]={n:i+1,t:ids.length})});
+}
+const seqOf=s=>SEQ[(s.supplier||"")+"|"+(s.shipment_id||s._id)];
+function seqTag(s){const q=seqOf(s);return q?`<span class="seq" title="${esc(s.supplier)} shipment ${q.n} of ${q.t}, ordered by arrival / ETD date">${esc(s.supplier)} ${q.n}-${q.t}</span>`:""}
+function supCell(s){return s.supplier?`<span class="supc">${avatar(s.supplier)}<span><b>${esc(s.supplier)}</b>${seqTag(s)}</span></span>`:""}
+const TYPEC={"Shipment":"var(--info)","Documents":"var(--violet)","Reference Standard":"var(--accent)","Others":"var(--muted)"};
+function typeTag(v){if(!v)return"";const c=TYPEC[v]||"var(--bad)";return`<span class="sc ttag" style="--cc:${c}">${esc(v)}</span>`}
+function chipClass(v){const ok=["Yes","Complete","Docs Received","Docs Dispatched","Received","Full","Paid","Released","Completed"],warn=["Pending","Waiting","Partial","Required"];return!v?"muted":ok.includes(v)?"ok":warn.includes(v)?"warn":v==="No"?"bad":"muted"}
+function sortRecent(list){
+  const g={};list.forEach(s=>{const k=s.shipment_id||s._id;g[k]=Math.max(g[k]||0,+s.created||0)});
+  return[...list].sort((a,b)=>{const ka=a.shipment_id||a._id,kb=b.shipment_id||b._id;return(g[kb]-g[ka])||String(kb).localeCompare(String(ka),undefined,{numeric:true})||((+a.created||0)-(+b.created||0))});
+}
+async function inlineEdit(id,k,v){
+  const prev=S.ships.find(x=>x._id===id);if(!prev)return;
+  const s=structuredClone(prev);
+  if(k==="stage")v=+v;
+  if(applyStatus(s,k,v)){s.progress=progress(s);await persist(s);toast(k==="final_arrived"&&v?s.shipment_id+" arrived in "+destOf(s)+" and moved to 2nd Release":k==="hub_recv"?(v?"Shipment received at hub":"Hub receipt cleared"):"Updated "+s.shipment_id);return}
+  if((s[k]??"")===v)return;
+  s[k]=v;
+  if(k==="supplier")fillFromGroup(s);
+  if(k==="group"){const g=S.settings.groups.find(x=>x.name===v);if(g){if(g.country)s.country=g.country;if(g.ref)s.ref_std=g.ref;if(g.coa)s.coa=g.coa}}
+  if(k==="stage")applyRelease(s,{stage:v});
+  else{s.stage=Math.max(+s.stage||1,autoStage(s))}
+  if(k==="final_date"){if(v&&v<=today()&&!s.final_arrived){setArrived(s,true);toast(s.shipment_id+" arrived in "+destOf(s)+" and moved to 2nd Release")}else if(!v&&prev.final_arrived)setArrived(s,false)}
+  if(k==="orig_attested"&&v&&s.attestation!=="Yes")s.attestation="Yes";
+  if(k==="flag"&&s.second_release&&!s.released){s.r_status=v==="hold"?"On Hold":v==="cancelled"?"Cancelled":"Under Analysis"}
+  if(k==="permit"){if(v==="Received"&&prev.permit!=="Received"){s.permit_date=today();toast("Import permit confirmed for "+s.shipment_id+". It's now on the dashboard, ready to arrange.")}if(v!=="Received")s.permit_date=""}
+  if(k==="shipment_id"&&!v){toast("Shipment ID can't be empty");render(true);return}
+  s.progress=progress(s);
+  await persist(s);
+  if(JOB_SYNC.some(([,sk])=>sk===k))await syncShipToJob(s);
+}
+function chip(v){
+  if(v===""||v==null)return'<span class="sc c-muted">—</span>';
+  const ok=["Yes","Complete","Docs Received","Docs Dispatched","Received","Full","Paid","Released","Completed"],warn=["Pending","Waiting","Partial","Required"],bad=["No"];
+  const c=ok.includes(v)?"ok":warn.includes(v)?"warn":bad.includes(v)?"bad":"muted";
+  return`<span class="sc c-${c}">${esc(v)}</span>`;
+}
+const AVC=["var(--info)","var(--violet)","var(--ok)","var(--warn)","var(--accent)","var(--bad)"];
+function avatar(name){if(!name)return"";let x=0;for(const ch of name)x=(x*31+ch.charCodeAt(0))>>>0;const ini=name.replace(/[^A-Za-z ]/g," ").trim().split(/\s+/).slice(0,2).map(w=>w[0]).join("").toUpperCase();return`<span class="av" style="--ac:${AVC[x%AVC.length]}">${esc(ini)}</span>`}
+function stagePill(s){const p=phaseOf(s),st=+s.stage||1;return`<span class="stage" style="--pc:${p.c}">${st}. ${esc(STAGES[st-1])}</span>`}
+function viewMain(doneView){
+  let base=S.ships.filter(s=>doneView?isDone(s):(S.showDone||inMain(s)));
+  const f=S.f,all=S.ships,t=today();
+  let h="";
+  if(!doneView){
+    const pc={};base.filter(matchQ).forEach(s=>{const k=phase(s);pc[k]=(pc[k]||0)+1});
+    h+=`<div class="ph-chips">${PHASES.filter(p=>(p.k!=="done"&&p.k!=="analysis")||S.showDone).map(p=>`<button type="button" class="phchip${f.phase===p.k?" on":""}" data-phasef="${p.k}" style="--pc:${p.c}" aria-pressed="${f.phase===p.k}"><i></i>${p.t}<b>${pc[p.k]||0}</b></button>`).join("")}</div>`;
+  }
+  h+=`<div class="filters">
+    <select id="ff_supplier" data-f="supplier" aria-label="Supplier">${opts(uniq([...S.settings.suppliers.map(x=>x.name),...all.map(s=>s.supplier)]),f.supplier,"All suppliers")}</select>
+    <select id="ff_distributor" data-f="distributor" aria-label="Distributor">${opts(uniq([...S.settings.distributors,...all.map(s=>s.distributor)]),f.distributor,"All distributors")}</select>
+    <select id="ff_stage" data-f="stage" aria-label="Stage"><option value="">All stages</option>${STAGES.map((n,i)=>`<option value="${i+1}"${f.stage==String(i+1)?" selected":""}>${i+1}. ${esc(n)}</option>`).join("")}</select>
+    <select id="ff_payment" data-f="payment" aria-label="Payment">${opts(L("payment"),f.payment,"All payments")}</select>
+    <select id="ff_type" data-f="type" aria-label="Type">${opts(L("type"),f.type,"All types")}</select>
+    <select id="ff_country" data-f="country" aria-label="Country">${opts(uniq([...S.settings.countries,...all.map(s=>s.country)]),f.country,"All countries")}</select>
+    ${Object.values(f).some(Boolean)?'<button class="btn small" type="button" data-act="clearf">Clear filters</button>':""}
+    ${doneView?"":`<label class="chipcheck"><input type="checkbox" id="showDone" data-act="showdone"${S.showDone?" checked":""}> Also show In Hub, 2nd Release &amp; Completed</label>`}
+    ${exportBar(doneView?"done":"main")}
+  </div>`;
+  const list=sortRecent(filtered(base,f));
+  S._mainList=list;
+  if(!list.length)return h+`<div class="empty">${S.ships.length?"No shipments match these filters or this search.":"No shipments yet. Add one with “New shipment”."}</div>`;
+  h+=`<div class="edit-hint">${doneView?"Shipments released in 2nd Release (or set to stage 18) land here as final. You can still correct any cell.":"When Import Permit is Received and a Transit Hub is chosen, the shipment moves to In Hub. Ticking Final Arrived moves it to 2nd Release."} Most recently added shipments are at the top. Click any cell to change it; changes save straight away. Click a Shipment ID for the full form.</div>`;
+  const bands=[["Identification",11,"band-a"],["Checks · documents · payment",10,"band-b"],["Movement · invoice",9,"band-c"],["Progress",4,"band-d"]];
+  if(doneView)bands.push(["2nd release",5,"band-b"]);
+  h+=`<div class="tablewrap hide-m"><table class="grid fancy"><thead><tr class="groups">${bands.map(([g,n,c],i)=>`<th colspan="${n}" class="${c}">${g}</th>`).join("")}</tr><tr>${COLS.map((c,i)=>`<th${i===0?' class="stick"':""}>${esc(c[1])}</th>`).join("")}${doneView?"<th>Date Submitted</th><th>Submitted By</th><th>Release Date</th><th>Completion</th><th>Undo</th>":""}</tr></thead><tbody>`;
+  let prev=null;
+  list.forEach(s=>{
+    const cont=prev===s.shipment_id;prev=s.shipment_id;const ph=phaseOf(s);
+    h+=`<tr class="tone-${tone(s)}${cont?" cont":""}" style="--pc:${ph.c}">`;
+    const id=esc(s._id),E=(k,html)=>html;
+    const bl=k=>(s[k]===undefined||s[k]===""||s[k]===null)?" blank":"";
+    const sel=(k,list,cls="")=>`<select class="ce${cls}${bl(k)}" id="c_${k}_${id}" data-c="${id}" data-k="${k}" aria-label="${esc(COLMAP[k]?COLMAP[k][1]:k)}">${opts(list,s[k]||"")}</select>`;
+    const chipSel=k=>{const v=s[k]||"";const c=chipClass(v);return`<select class="ce cs c-${c}${bl(k)}" id="c_${k}_${id}" data-c="${id}" data-k="${k}" aria-label="${esc(COLMAP[k][1])}">${opts(L(COLMAP[k][2].slice(5)),v)}</select>`};
+    const txt=(k,w,mono)=>`<input type="text" class="ce${mono?" mono":""}" id="c_${k}_${id}" data-c="${id}" data-k="${k}" value="${esc(s[k]||"")}" style="width:${w}ch" aria-label="${esc(COLMAP[k]?COLMAP[k][1]:k)}">`;
+    const dt=k=>`<input type="date" class="ce cd${bl(k)}" id="c_${k}_${id}" data-c="${id}" data-k="${k}" value="${esc(s[k]||"")}" aria-label="${esc(COLMAP[k]?COLMAP[k][1]:k)}">`;
+    COLS.forEach(([k,,kind],i)=>{
+      const v=s[k];let cell;
+      if(k==="shipment_id"){h+=`<td class="stick idcell"><button type="button" class="idbtn" data-open="${id}" title="Open full form"><span class="mono">${cont?"↳ ":""}${esc(v)}</span><small style="color:${ph.c}">${esc(ph.t)}</small></button></td>`;return}
+      if(k==="payment"){h+=`<td class="paycell ${esc(v||"")} edit">${sel("payment",L("payment")," cpay")}</td>`;return}
+      if(kind==="money"){h+=`<td class="r edit"><input type="number" step="0.01" min="0" class="ce num" id="c_value_${id}" data-c="${id}" data-k="value" value="${esc(v||"")}" placeholder="${esc(S.settings.currency)}" style="width:11ch;text-align:right" aria-label="Value"></td>`;return}
+      if(k==="supplier")cell=`<span class="supc">${avatar(v)}<span>${sel("supplier",S.settings.suppliers.map(x=>x.name)," cb")}${seqTag(s)}</span></span>`;
+      else if(k==="product")cell=txt("product",24).replace('class="ce"','class="ce cb"');
+      else if(["permit","qty","ref_std","docs","coa","artwork","attestation"].includes(k))cell=chipSel(k);
+      else if(k==="type")cell=`<select class="ce cs ttag${bl("type")}" style="--cc:${TYPEC[v]||"var(--muted)"}" id="c_type_${id}" data-c="${id}" data-k="type" aria-label="Type">${opts(L("type"),v||"")}</select>`;
+      else if(k==="distributor")cell=sel("distributor",S.settings.distributors);
+      else if(k==="group")cell=sel("group",S.settings.groups.map(g=>g.name));
+      else if(k==="country")cell=sel("country",S.settings.countries);
+      else if(k==="method")cell=sel("method",L("method"));
+      else if(k==="hub_date")cell=`<span class="cpair">${sel("transit_hub",L("hub"))}${dt("hub_date")}</span>`;
+      else if(k==="final_date")cell=`<span class="cpair"><select class="ce cs c-${v||phase(s)==="arrived"?"ok":"muted"}" id="c_final_country_${id}" data-c="${id}" data-k="final_country" aria-label="Final destination country">${opts(S.settings.countries,s.final_country||S.settings.destCountry||"")}</select>${dt("final_date")}</span>`;
+      else if(k==="etd"){const dd=v?diff(t,v):0;cell=`<span class="cpair">${dt("etd")}${dd>0&&dd<=S.settings.etdDays?`<span class="sc c-info">in ${dd}d</span>`:""}</span>`}
+      else if(kind==="date")cell=dt(k);
+      else if(k==="stage")cell=`<span class="cpair"><select class="ce cs cstage" style="--cc:${ph.c}" id="c_stage_${id}" data-c="${id}" data-k="stage" aria-label="Stage">${STAGES.map((n,j)=>`<option value="${j+1}"${(+s.stage||1)===j+1?" selected":""}>${j+1}. ${esc(n)}</option>`).join("")}</select><select class="ce cs c-${s.flag==="hold"?"warn":s.flag==="cancelled"?"bad":"muted"}" id="c_flag_${id}" data-c="${id}" data-k="flag" aria-label="Flag">${[["","Active"],["hold","On Hold"],["cancelled","Cancelled"]].map(([fv,ft])=>`<option value="${fv}"${(s.flag||"")===fv?" selected":""}>${ft}</option>`).join("")}</select></span>`;
+      else if(k==="progress"){const p=progress(s);cell=`<span class="progress"><span class="bar thick"><i style="width:${p}%;background:${ph.c}"></i></span><b class="num" style="color:${ph.c}">${p}%</b></span>`}
+      else if(k==="second_release")cell=`<input type="checkbox" class="switch" id="sr_${id}" data-sr="${id}"${s.second_release?" checked":""} aria-label="2nd release for ${esc(s.shipment_id)}">${s.second_release?(s.released?' <span class="sc c-ok">Released</span>':' <span class="sc c-warn">Yes</span>'):""}`;
+      else if(k==="kepler_inv")cell=`<span class="cpair">${txt("kepler_inv",12,1)}<button type="button" class="trk" data-track="${id}" title="Open tracking" aria-label="Open tracking">⌖</button></span>`;
+      else if(k==="now_in")cell=`<b style="color:${ph.c}">${esc(nowIn(s))}</b>`;
+      else if(k==="hub_status")cell=hubTicks(s,"c","");
+      else if(k==="po"||k==="supplier_inv"||k==="clearance_inv"||k==="tracking")cell=txt(k,k==="tracking"?16:12,1);
+      else if(k==="temp")cell=txt("temp",6);
+      else cell=esc(v);
+      h+=`<td${["now_in","progress"].includes(k)?"":' class="edit"'}>${cell}</td>`;
+    });
+    if(doneView)h+=`<td>${fd(s.date_submitted)||"—"}</td><td>${esc(s.submitted_by||"—")}</td><td>${fd(s.release_date)||"—"}</td><td>${s.released||isDone(s)?'<span class="sc c-ok">✓ Completed</span>':""}</td><td class="edit">${undoBtn(s)}</td>`;
+    h+=`</tr>`;
+  });
+  h+=`</tbody></table></div>`;
+  h+=`<div class="cards">${list.map(s=>{const p=progress(s),ph=phaseOf(s);return`<div class="card stripe tone-${tone(s)}" data-open="${esc(s._id)}" style="--pc:${ph.c}"><div class="card-h"><b>${esc(s.shipment_id)}</b><span class="sc" style="--cc:${ph.c}">${esc(ph.t)}</span></div><div class="prod">${esc(s.product||"—")}</div><div class="meta">${supCell(s)}${typeTag(s.type)}${s.initiated?`<span>started ${fd(s.initiated)}</span>`:""}</div><div class="meta cardedit"><select class="ce cs cstage" style="--cc:${ph.c}" id="m_stage_${esc(s._id)}" data-c="${esc(s._id)}" data-k="stage" aria-label="Stage">${STAGES.map((n,j)=>`<option value="${j+1}"${(+s.stage||1)===j+1?" selected":""}>${j+1}. ${esc(n)}</option>`).join("")}</select><select class="ce cs c-${chipClass(s.payment)}" id="m_pay_${esc(s._id)}" data-c="${esc(s._id)}" data-k="payment" aria-label="Payment">${opts(L("payment"),s.payment||"")}</select>${s.flag==="hold"?'<span class="sc c-warn">On hold</span>':""}${s.second_release&&!s.released?'<span class="sc c-warn">2nd release</span>':""}</div><div class="progress"><span class="bar thick" style="flex:1"><i style="width:${p}%;background:${ph.c}"></i></span><b class="num" style="font-size:12px;color:${ph.c}">${p}%</b></div>${doneView?`<div class="meta">${undoBtn(s)}</div>`:`<div class="hchecks">${hubTicks(s,"m",1)}</div>`}<div class="meta"><span>Kepler ${keplerLink(s,"—")}</span><span>Now in <b style="color:${ph.c}">${esc(nowIn(s))}</b></span></div><div class="meta"><span>${esc(whereText(s))}</span></div></div>`}).join("")}</div>`;
+  return h;
+}
+
+/* ---------- job open ---------- */
+const JOB_SYNC=[["date","initiated"],["po","po"],["supplier","supplier"],["type","type"],["supplier_inv","supplier_inv"],["distributor","distributor"]];
+const normPO=v=>String(v||"").trim().toLowerCase();
+function jobShips(j){return S.ships.filter(s=>s.job_id===j._id||(!s.job_id&&j.po&&normPO(s.po)===normPO(j.po)))}
+function jobFor(s){return(s.job_id&&S.jobs.find(j=>j._id===s.job_id))||(s.po&&S.jobs.find(j=>normPO(j.po)===normPO(s.po)))||null}
+function jobStatus(j){const sh=jobShips(j);if(!sh.length)return["Open","warn"];if(sh.every(isDone))return["Completed","ok"];return["Linked","info"]}
+function nextJobId(){let m=0;S.jobs.forEach(j=>{const n=parseInt(String(j.job_id||"").replace(/\D/g,""),10);if(n>m)m=n});return"JOB-"+String(m+1).padStart(3,"0")}
+function fillFromGroup(s){const sup=S.settings.suppliers.find(x=>x.name===s.supplier);if(!sup||!sup.group)return;s.group=sup.group;const g=S.settings.groups.find(x=>x.name===sup.group);if(g){if(g.country)s.country=g.country;if(g.ref)s.ref_std=g.ref;if(g.coa)s.coa=g.coa}}
+async function syncJobToShips(j,keys){
+  const back={};
+  for(const s0 of jobShips(j)){
+    const s=structuredClone(s0);let ch=s.job_id!==j._id;s.job_id=j._id;
+    JOB_SYNC.forEach(([jk,sk])=>{
+      if(keys&&!keys.includes(jk))return;
+      const jv=j[jk]||"",sv=s[sk]||"";if(jv===sv)return;
+      if(keys||jv){s[sk]=jv;ch=true;if(sk==="supplier")fillFromGroup(s)}   // an edit, or job has a value: job wins
+      else if(sv){back[jk]=sv}                                             // first link: fill job gaps from shipment
+    });
+    if(ch){s.stage=Math.max(+s.stage||1,autoStage(s));s.progress=progress(s);await persist(s)}
+  }
+  if(Object.keys(back).length){const jj=structuredClone(S.jobs.find(x=>x._id===j._id)||j);Object.assign(jj,back);await persistJob(jj)}
+}
+async function syncShipToJob(s){
+  const j0=jobFor(s);if(!j0)return;const j=structuredClone(j0);let ch=false;
+  JOB_SYNC.forEach(([jk,sk])=>{if(s[sk]&&(j[jk]||"")!==s[sk]){j[jk]=s[sk];ch=true}});
+  if(ch)await persistJob(j);
+}
+async function addJob(){
+  const d={...S.jobDraft};["date","po","supplier","type","supplier_inv","distributor"].forEach(k=>d[k]=String(d[k]??"").trim());
+  if(!d.date)d.date=today();
+  if(!d.po&&!d.supplier_inv){toast("Enter a PO Number or Supplier Invoice to open a job");return}
+  if(d.po&&S.jobs.some(j=>normPO(j.po)===normPO(d.po))){toast("A job with PO "+d.po+" already exists");return}
+  const j={_id:"j"+newId().slice(1),job_id:nextJobId(),created:Date.now(),...d};
+  S.jobDraft={};const ae=document.activeElement;if(ae)ae.blur();
+  await persistJob(j);
+  const linked=jobShips(j);
+  if(linked.length){await syncJobToShips(j);toast(j.job_id+" opened and linked to "+linked.map(s=>s.shipment_id).join(", "))}
+  else toast(j.job_id+" opened");
+}
+async function createShipFromJob(id){
+  const j=S.jobs.find(x=>x._id===id);if(!j)return;
+  const s={_id:newId(),shipment_id:nextShipmentId(),initiated:j.date||today(),po:j.po||"",supplier:j.supplier||"",type:j.type||"Shipment",supplier_inv:j.supplier_inv||"",distributor:j.distributor||"",job_id:j._id,payment:"Pending",docs:"Pending",second_release:false,flag:"",created:Date.now(),final_country:S.settings.destCountry||""};
+  fillFromGroup(s);s.stage=autoStage(s);s.progress=progress(s);
+  await persist(s);toast(s.shipment_id+" created in Main Shipments");
+  openDrawer(S.ships.find(x=>x._id===s._id)||s,false);
+}
+function viewJobs(){
+  const st=S.settings,dr=S.jobDraft;
+  const list=S.jobs.filter(j=>{const q=S.q.trim().toLowerCase();if(q&&![j.job_id,j.po,j.supplier_inv,j.supplier,j.distributor].some(v=>String(v||"").toLowerCase().includes(q)))return false;return!S.jf||jobStatus(j)[0]===S.jf}).sort((a,b)=>String(b.date||"").localeCompare(String(a.date||""))||String(b.job_id).localeCompare(String(a.job_id),undefined,{numeric:true}));
+  S._jobList=list;
+  const cnt=k=>S.jobs.filter(j=>jobStatus(j)[0]===k).length;
+  let h=`<div class="panel jobform"><div class="panel-h"><h2>Open a new job</h2><span class="eyebrow">Linked to Main Shipments by PO Number</span></div>
+   <form class="jobgrid" data-form="job" autocomplete="off">
+    <label class="fld"><span>Date</span><input id="jo_date" type="date" data-jd="date" value="${esc(dr.date||today())}"></label>
+    <label class="fld"><span>PO Number</span><input id="jo_po" type="text" data-jd="po" value="${esc(dr.po||"")}" placeholder="e.g. PO10021"></label>
+    <label class="fld"><span>Supplier</span><select id="jo_supplier" data-jd="supplier">${opts(st.suppliers.map(x=>x.name),dr.supplier||"")}</select></label>
+    <label class="fld"><span>Type</span><select id="jo_type" data-jd="type">${opts(L("type"),dr.type||"Shipment")}</select></label>
+    <label class="fld"><span>Supplier Invoice</span><input id="jo_inv" type="text" data-jd="supplier_inv" value="${esc(dr.supplier_inv||"")}"></label>
+    <label class="fld"><span>Distributor</span><select id="jo_dist" data-jd="distributor">${opts(st.distributors,dr.distributor||"")}</select></label>
+    <div class="fld" style="align-self:end"><button class="btn primary" type="submit" style="justify-content:center">Open job</button></div>
+   </form></div>`;
+  h+=`<div class="filters"><div class="ph-chips">${[["","All",S.jobs.length,"var(--accent)"],["Open","Open · no shipment yet",cnt("Open"),"var(--warn)"],["Linked","Linked to shipment",cnt("Linked"),"var(--ok)"],["Completed","Completed",cnt("Completed"),"var(--ok)"]].map(([k,t,n,c])=>`<button type="button" class="phchip${S.jf===k?" on":""}" data-jf="${k}" style="--pc:${c}"><i></i>${t}<b>${n}</b></button>`).join("")}</div>${exportBar("jobs")}</div>`;
+  if(!S.jobs.length)return h+`<div class="empty"><b>No jobs yet</b><span>Fill in the form above to open your first job. If a shipment in Main Shipments already has the same PO Number, the two link automatically.</span></div>`;
+  if(!list.length)return h+`<div class="empty">No jobs match this filter or search.</div>`;
+  h+=`<div class="tablewrap hide-m"><table class="grid fancy"><thead><tr><th class="stick">Job ID</th><th>Status</th><th>Linked shipment</th><th>Date</th><th>PO Number</th><th>Supplier</th><th>Type</th><th>Supplier Invoice</th><th>Distributor</th><th></th></tr></thead><tbody>`;
+  list.forEach(j=>{
+    const id=esc(j._id),[stt,sc]=jobStatus(j),sh=jobShips(j);
+    h+=`<tr class="${stt==="Open"?"tone-yellow":stt==="Completed"?"tone-green":""}" style="--pc:var(--${sc==="info"?"ok":sc})">
+     <td class="stick idcell"><span class="mono" style="font-weight:700">${esc(j.job_id)}</span></td>
+     <td><span class="sc c-${sc==="info"?"ok":sc}">${stt}</span></td>
+     <td>${sh.length?sh.map(s=>`<button type="button" class="klink" data-track="${esc(s._id)}">${esc(s.shipment_id)}</button> <span class="sc" style="--cc:${phaseOf(s).c}">${esc(phaseOf(s).t)}</span>`).join("<br>"):`<button class="btn small primary" type="button" data-jcreate="${id}">Create shipment</button>`}</td>
+     <td class="edit"><input type="date" id="jd_${id}" data-j="${id}" data-k="date" value="${esc(j.date||"")}"></td>
+     <td class="edit"><input type="text" id="jp_${id}" data-j="${id}" data-k="po" value="${esc(j.po||"")}" class="mono"></td>
+     <td class="edit"><select id="js_${id}" data-j="${id}" data-k="supplier">${opts(st.suppliers.map(x=>x.name),j.supplier)}</select></td>
+     <td class="edit"><select id="jt_${id}" data-j="${id}" data-k="type">${opts(L("type"),j.type)}</select></td>
+     <td class="edit"><input type="text" id="ji_${id}" data-j="${id}" data-k="supplier_inv" value="${esc(j.supplier_inv||"")}" class="mono"></td>
+     <td class="edit"><select id="jdi_${id}" data-j="${id}" data-k="distributor">${opts(st.distributors,j.distributor)}</select></td>
+     <td><button class="btn small danger" type="button" data-jdel="${id}" aria-label="Delete ${esc(j.job_id)}">${S.jobDel===j._id?"Tap again to delete":"✕"}</button></td></tr>`;
+  });
+  h+=`</tbody></table></div>`;
+  h+=`<div class="cards">${list.map(j=>{const id=esc(j._id),[stt,sc]=jobStatus(j),sh=jobShips(j);return`<div class="card stripe ${stt==="Open"?"tone-yellow":stt==="Completed"?"tone-green":""}" style="--pc:var(--${sc==="info"?"ok":sc});cursor:default"><div class="card-h"><b>${esc(j.job_id)}</b><span class="sc c-${sc==="info"?"ok":sc}">${stt}</span></div>
+    <dl class="kv"><dt>Date</dt><dd>${fd(j.date)||"—"}</dd><dt>PO</dt><dd class="mono">${esc(j.po||"—")}</dd><dt>Supplier</dt><dd>${esc(j.supplier||"—")}</dd><dt>Type</dt><dd>${typeTag(j.type)||"—"}</dd><dt>Supplier inv.</dt><dd class="mono">${esc(j.supplier_inv||"—")}</dd><dt>Distributor</dt><dd>${esc(j.distributor||"—")}</dd></dl>
+    <div class="meta">${sh.length?sh.map(s=>`<button type="button" class="klink" data-track="${esc(s._id)}">${esc(s.shipment_id)}</button><span class="sc" style="--cc:${phaseOf(s).c}">${esc(phaseOf(s).t)}</span>`).join(""):`<button class="btn small primary" type="button" data-jcreate="${id}">Create shipment</button>`}<button class="btn small" type="button" data-jedit="${id}">Edit</button></div></div>`}).join("")}</div>`;
+  return h;
+}
+function openJobEdit(id){
+  const j=S.jobs.find(x=>x._id===id);if(!j)return;const st=S.settings;
+  $("#overlay").innerHTML=`<div class="scrim" data-act="close"></div><div class="sheet" role="dialog" aria-label="Edit job"><div><div class="eyebrow">Edit job</div><b class="mono">${esc(j.job_id)}</b></div>
+   <label class="fld"><span>Date</span><input type="date" id="mj_date" data-j="${esc(id)}" data-k="date" value="${esc(j.date||"")}"></label>
+   <label class="fld"><span>PO Number</span><input type="text" id="mj_po" data-j="${esc(id)}" data-k="po" value="${esc(j.po||"")}"></label>
+   <label class="fld"><span>Supplier</span><select id="mj_sup" data-j="${esc(id)}" data-k="supplier">${opts(st.suppliers.map(x=>x.name),j.supplier)}</select></label>
+   <label class="fld"><span>Type</span><select id="mj_type" data-j="${esc(id)}" data-k="type">${opts(L("type"),j.type)}</select></label>
+   <label class="fld"><span>Supplier Invoice</span><input type="text" id="mj_inv" data-j="${esc(id)}" data-k="supplier_inv" value="${esc(j.supplier_inv||"")}"></label>
+   <label class="fld"><span>Distributor</span><select id="mj_dist" data-j="${esc(id)}" data-k="distributor">${opts(st.distributors,j.distributor)}</select></label>
+   <button class="btn danger" type="button" data-jdel="${esc(id)}">${S.jobDel===j._id?"Tap again to delete":"Delete job"}</button>
+   <button class="btn primary" type="button" data-act="close">Done</button></div>`;
+}
+async function updateJob(id,k,v){
+  const j=structuredClone(S.jobs.find(x=>x._id===id));if(!j||(j[k]||"")===v)return;
+  if(k==="po"&&v&&S.jobs.some(x=>x._id!==id&&normPO(x.po)===normPO(v))){toast("Another job already uses PO "+v);render(true);return}
+  const before=jobShips(j);j[k]=v;
+  await persistJob(j);
+  for(const s0 of before){if(s0.job_id!==j._id){const s=structuredClone(s0);s.job_id=j._id;await persist(s)}}
+  await syncJobToShips(S.jobs.find(x=>x._id===id)||j,[k]);
+  const n=jobShips(j).length;if(n)toast("Updated "+j.job_id+" and "+n+" linked shipment line"+(n===1?"":"s"));
+}
+
+/* ---------- in hub ---------- */
+const inHub=s=>!!(s&&s.permit==="Received"&&s.transit_hub&&s.flag!=="cancelled"&&!isDone(s)&&!s.second_release);
+function hubList(all){return S.ships.filter(s=>inHub(s)&&(all||!s.final_date))}
+const destName=()=>S.settings.destCountry||"Kuwait";
+function setArrived(s,on){
+  const t=today();
+  if(on){
+    s.final_arrived=true;
+    if(!s.final_date||s.final_date>t)s.final_date=t;
+    if(!s.final_country)s.final_country=S.settings.destCountry||"";
+    if(!s.arrival_date)s.arrival_date=s.final_date;
+    s.stage=Math.max(+s.stage||1,15);
+    if(!s.second_release)applyRelease(s,{second_release:true});
+  }else{
+    s.final_arrived=false;s.final_date="";if(s.arrival_date)s.arrival_date="";
+    if(s.second_release&&!s.released)applyRelease(s,{second_release:false});
+    if(+s.stage>=15&&+s.stage<18)s.stage=Math.min(14,Math.max(autoStage(s),1));
+  }
+}
+function applyStatus(s,k,v){
+  if(k==="hub_recv"){if(v){if(!s.hub_date||s.hub_date>today())s.hub_date=today()}else s.hub_date="";s.stage=Math.max(+s.stage||1,autoStage(s));return true}
+  if(k==="final_arrived"){setArrived(s,!!v);return true}
+  return false;
+}
+function hubTicks(s,pre,lbl){const id=esc(s._id);return`<span class="hticks">
+  <label class="hchk" title="Shipment received at hub"><input type="checkbox" class="tick" id="${pre}hr_${id}" data-c="${id}" data-k="hub_recv"${s.hub_date&&s.hub_date<=today()?" checked":""}>${lbl?"Shipment received":"Received"}</label>
+  <label class="hchk" title="Attested documents received"><input type="checkbox" class="tick" id="${pre}ha_${id}" data-c="${id}" data-k="orig_attested"${s.orig_attested?" checked":""}>${lbl?"Attested documents received":"Attested"}</label>
+  <label class="hchk" title="Final arrived in ${esc(destOf(s))}"><input type="checkbox" class="tick" id="${pre}hf_${id}" data-c="${id}" data-k="final_arrived"${s.final_arrived?" checked":""}>${lbl?"Final arrived in "+esc(destOf(s)):"Arrived "+esc(destOf(s))}</label></span>`}
+function hubStatus(s){
+  if(s.final_arrived)return["Arrived · moved to 2nd Release","ok"];
+  if(s.fwd_ok)return["Forwarder approved","ok"];
+  if(s.ready_move)return["Ready to move","ok"];
+  if(!s.hub_date)return["Awaiting shipment at hub","muted"];
+  if(!s.orig_attested)return["Waiting for originals","warn"];
+  return["Originals in · prepare move","warn"];
+}
+function applyHub(s,patch){
+  for(const k of Object.keys(patch)){if(applyStatus(s,k,patch[k])){s.progress=progress(s);return s}}
+  Object.assign(s,patch);
+  if("fwd_ok"in patch){if(s.fwd_ok){s.fwd_date=today();if(!s.ready_move)s.ready_move=true;if(!s.orig_attested)toast("Heads up: original attested documents not marked received for "+s.shipment_id)}else s.fwd_date=""}
+  if("ready_move"in patch&&s.ready_move&&!s.orig_attested)toast("Original attested documents aren't marked received yet");
+  if("hub_date"in patch&&!D)s.stage=Math.max(+s.stage||1,autoStage(s));
+  return s;
+}
+function viewHub(){
+  const list=S._hubList=hubList(!!S.hubAll).filter(matchQ).sort((a,b)=>(+!!a.fwd_ok)-(+!!b.fwd_ok)||(+!!b.ready_move)-(+!!a.ready_move)||cmpShip(a,b));
+  const t=today();
+  const n={wait:list.filter(s=>!s.orig_attested).length,ready:list.filter(s=>s.ready_move&&!s.fwd_ok).length,ok:list.filter(s=>s.fwd_ok).length};
+  let h=`<div class="hub-sum"><div><span class="eyebrow">In hub</span><b>${list.length}</b><span style="font-size:12px;color:var(--muted)">${list.filter(s=>s.hub_date&&s.hub_date<=t).length} shipment received</span></div><div style="--pc:var(--warn)"><span class="eyebrow">Waiting for attested originals</span><b>${n.wait}</b></div><div style="--pc:var(--info)"><span class="eyebrow">Ready to move</span><b>${n.ready}</b></div><div style="--pc:var(--ok)"><span class="eyebrow">Forwarder approved</span><b>${n.ok}</b></div></div>`;
+  h+=`<div class="filters"><span class="lbl">Shipments move here from Main Shipments once Import Permit is “Received” and a Transit Hub is selected. Tick Final Arrived to send one to 2nd Release. Every change here updates the shipment everywhere.</span>${exportBar("hub")}</div>`;
+  if(!list.length)return h+`<div class="empty"><b>No shipments in hub yet</b><span>In Main Shipments, set Import Permit Status to “Received” and choose a Transit Hub (Dubai, Jordan or Other). The shipment then moves here.</span></div>`;
+  h+=`<div class="tablewrap hide-m"><table class="grid fancy"><thead><tr class="groups"><th colspan="7" class="band-a">Shipment</th><th colspan="4" class="band-b">Main Shipments status</th><th colspan="5" class="band-c">Hub</th><th colspan="6" class="band-d">Release from hub</th></tr><tr>
+   ${["Shipment ID","Initiated","Product / Description","Supplier","Group","Distributor","Kepler Invoice","Stage","Payment","Supplier Invoice","Now In","Import Permit","Transit Hub","Shipment Received ✓","Arrived at Hub","Days in hub","Attested Documents Received ✓","Ready to Move","Forwarder","Approve Forwarder ✓",`Final Arrived in ${esc(destName())} ✓`,"Status"].map((x,i)=>`<th${i===0?' class="stick"':""}>${x}</th>`).join("")}<th>Remarks</th></tr></thead><tbody>`;
+  list.forEach(s=>{
+    const id=esc(s._id),[stt,sc]=hubStatus(s),tn=s.fwd_ok||s.ready_move?"green":"yellow";
+    const days=s.hub_date&&s.hub_date<=t?diff(s.hub_date,t):"";
+    h+=`<tr class="tone-${tn}" style="--pc:var(--${sc==="muted"?"line":sc})">
+     <td class="stick idcell"><a href="#" class="mono" data-open="${id}" style="color:var(--accent);font-weight:700">${esc(s.shipment_id)}</a></td>
+     <td>${fd(s.initiated)}</td><td><b>${esc(s.product)}</b></td><td>${supCell(s)}</td><td>${esc(s.group)}</td><td class="edit"><select class="ce${s.distributor?"":" blank"}" id="hc_dist_${id}" data-c="${id}" data-k="distributor" aria-label="Distributor">${opts(S.settings.distributors,s.distributor||"")}</select></td><td>${keplerLink(s)}</td>
+     <td class="edit"><select class="ce cs cstage" style="--cc:${phaseOf(s).c}" id="hc_stage_${id}" data-c="${id}" data-k="stage" aria-label="Stage">${STAGES.map((n,j)=>`<option value="${j+1}"${(+s.stage||1)===j+1?" selected":""}>${j+1}. ${esc(n)}</option>`).join("")}</select></td>
+     <td class="edit paycell ${esc(s.payment||"")}"><select class="ce cpay${s.payment?"":" blank"}" id="hc_pay_${id}" data-c="${id}" data-k="payment" aria-label="Payment">${opts(L("payment"),s.payment||"")}</select></td>
+     <td class="edit"><input type="text" class="ce mono${s.supplier_inv?"":" blank"}" id="hc_inv_${id}" data-c="${id}" data-k="supplier_inv" value="${esc(s.supplier_inv||"")}" style="width:12ch" aria-label="Supplier invoice"></td>
+     <td><b style="color:${phaseOf(s).c}">${esc(nowIn(s))}</b></td>
+     <td class="edit"><select class="ce cs c-${chipClass(s.permit)}" id="hc_permit_${id}" data-c="${id}" data-k="permit" aria-label="Import permit">${opts(L("permit"),s.permit||"")}</select></td>
+     <td class="edit"><select id="hh_${id}" data-h="${id}" data-k="transit_hub">${opts(L("hub"),s.transit_hub)}</select></td>
+     <td class="edit ctr"><input type="checkbox" class="tick" id="hrc_${id}" data-h="${id}" data-k="hub_recv"${s.hub_date&&s.hub_date<=t?" checked":""} aria-label="Shipment received at hub"></td>
+     <td class="edit"><input type="date" id="hd_${id}" data-h="${id}" data-k="hub_date" value="${esc(s.hub_date||"")}"></td>
+     <td class="num">${days!==""?`<b>${days}</b> d`:"—"}</td>
+     <td class="edit ctr"><input type="checkbox" class="tick" id="oa_${id}" data-h="${id}" data-k="orig_attested"${s.orig_attested?" checked":""} aria-label="Original attested received"> ${s.orig_attested?'<span class="sc c-ok">Received</span>':'<span class="sc c-warn">Not yet</span>'}</td>
+     <td class="edit ctr"><input type="checkbox" class="tick" id="rm2_${id}" data-h="${id}" data-k="ready_move"${s.ready_move?" checked":""} aria-label="Ready to move"></td>
+     <td class="edit"><input type="text" id="fw_${id}" data-h="${id}" data-k="forwarder" value="${esc(s.forwarder||"")}" placeholder="Forwarder name"></td>
+     <td class="edit ctr"><input type="checkbox" class="tick" id="fo_${id}" data-h="${id}" data-k="fwd_ok"${s.fwd_ok?" checked":""} aria-label="Approve forwarder"> ${s.fwd_date?`<small style="color:var(--muted)">${fds(s.fwd_date)}</small>`:""}</td>
+     <td class="edit ctr"><input type="checkbox" class="tick" id="hfa_${id}" data-h="${id}" data-k="final_arrived"${s.final_arrived?" checked":""} aria-label="Final arrived in ${esc(destOf(s))}"></td>
+     <td><span class="sc c-${sc}">${esc(stt)}</span></td>
+     <td class="edit"><input type="text" id="hr_${id}" data-h="${id}" data-k="hub_remarks" maxlength="160" value="${esc(s.hub_remarks||"")}" placeholder="Add remark" style="max-width:220px"></td></tr>`;
+  });
+  h+=`</tbody></table></div>`;
+  h+=`<div class="cards">${list.map(s=>{const id=esc(s._id),[stt,sc]=hubStatus(s),tn=s.fwd_ok||s.ready_move?"green":"yellow";return`<div class="card stripe tone-${tn}" data-open="${id}" style="--pc:var(--${sc==="muted"?"line":sc})"><div class="card-h"><b>${esc(s.shipment_id)}</b><span class="sc c-${sc}">${esc(stt)}</span></div><div class="prod">${esc(s.product||"—")}</div><dl class="kv"><dt>Kepler inv.</dt><dd>${keplerLink(s)}</dd><dt>Supplier</dt><dd>${esc(s.supplier||"—")} ${seqOf(s)?`<span class="seq">${seqOf(s).n}-${seqOf(s).t}</span>`:""}</dd><dt>Group</dt><dd>${esc(s.group||"—")}</dd><dt>Distributor</dt><dd>${esc(s.distributor||"—")}</dd><dt>Hub</dt><dd>${esc(s.transit_hub||"—")}${s.hub_date?" · "+fd(s.hub_date):""}</dd></dl>
+    <div class="hchecks"><label class="hchk"><input type="checkbox" class="tick" id="mhr_${id}" data-h="${id}" data-k="hub_recv"${s.hub_date&&s.hub_date<=t?" checked":""}> Shipment received at hub</label><label class="hchk"><input type="checkbox" class="tick" id="moa_${id}" data-h="${id}" data-k="orig_attested"${s.orig_attested?" checked":""}> Attested documents received</label><label class="hchk"><input type="checkbox" class="tick" id="mrm_${id}" data-h="${id}" data-k="ready_move"${s.ready_move?" checked":""}> Ready to move</label><label class="hchk"><input type="checkbox" class="tick" id="mfo_${id}" data-h="${id}" data-k="fwd_ok"${s.fwd_ok?" checked":""}> Forwarder approved${s.fwd_date?" · "+fds(s.fwd_date):""}</label><label class="hchk"><input type="checkbox" class="tick" id="mfa_${id}" data-h="${id}" data-k="final_arrived"${s.final_arrived?" checked":""}> Final arrived in ${esc(destOf(s))}</label></div></div>`}).join("")}</div>`;
+  return h;
+}
+
+/* ---------- 2nd release ---------- */
+function relReport(all){
+  const t=today(),act=all.filter(inRelease),rel=all.filter(s=>s.released||isDone(s));
+  const ua=act.filter(s=>(s.r_status||"Under Analysis")==="Under Analysis").length,oh=act.filter(s=>s.r_status==="On Hold").length;
+  const mon=t.slice(0,7),relM=rel.filter(s=>(s.release_date||"").startsWith(mon)).length;
+  const durs=rel.filter(s=>s.date_submitted&&s.release_date).map(s=>diff(s.date_submitted,s.release_date));
+  const avg=durs.length?Math.round(durs.reduce((a,b)=>a+b,0)/durs.length):null;
+  const pend=act.filter(s=>s.date_submitted).map(s=>diff(s.date_submitted,t));const oldest=pend.length?Math.max(...pend):null;
+  const by={};all.forEach(s=>{const k=s.supplier||"—";by[k]=by[k]||{a:0,r:0,d:[]};if(inRelease(s))by[k].a++;else{by[k].r++;if(s.date_submitted&&s.release_date)by[k].d.push(diff(s.date_submitted,s.release_date))}});
+  let h=`<div class="panel"><div class="panel-h"><h2>2nd Release report</h2><span class="expbar"><button class="btn small primary" type="button" data-exp="report">Export full report (Excel)</button><button class="btn small" type="button" data-copy="report">Copy for Excel</button></span></div>
+   <div class="hub-sum">
+    <div style="--pc:var(--warn)"><span class="eyebrow">Under analysis</span><b>${ua}</b></div>
+    <div style="--pc:var(--warn)"><span class="eyebrow">On hold</span><b>${oh}</b></div>
+    <div style="--pc:var(--ok)"><span class="eyebrow">Released this month</span><b>${relM}</b><span style="font-size:12px;color:var(--muted)">${rel.length} released in total</span></div>
+    <div style="--pc:var(--info)"><span class="eyebrow">Avg. days in analysis</span><b>${avg==null?"—":avg}</b><span style="font-size:12px;color:var(--muted)">${oldest==null?"No open analysis dated":"Oldest open: "+oldest+" days"}</span></div>
+   </div>`;
+  const rows=Object.entries(by).sort((a,b)=>(b[1].a+b[1].r)-(a[1].a+a[1].r));
+  if(rows.length)h+=`<div style="overflow-x:auto"><table class="mtable"><thead><tr><th>Supplier</th><th class="num">Under analysis</th><th class="num">Released</th><th class="num">Avg. days</th></tr></thead><tbody>${rows.map(([k,v])=>`<tr><td>${esc(k)}</td><td class="num">${v.a}</td><td class="num">${v.r}</td><td class="num">${v.d.length?Math.round(v.d.reduce((a,b)=>a+b,0)/v.d.length):"—"}</td></tr>`).join("")}</tbody></table></div>`;
+  h+=`<p style="margin:0;font-size:12.5px;color:var(--muted)">The full report has every 2nd Release shipment, including the ones now in Completed. Each row carries all Main Shipments columns plus the analysis and release details.</p></div>`;
+  return h;
+}
+function viewRelease(){
+  const f=S.rf,everything=S.ships.filter(s=>s.second_release),all=S.relDone?everything:everything.filter(inRelease);
+  let list=filtered(all,f);
+  const grp=s=>s.released||s.r_status==="Released"?2:s.r_status==="Cancelled"?3:0;
+  const key=S.rsort==="arrival"?(s=>s.arrival_date||s.final_date||""):(s=>s.date_submitted||"");
+  list.sort((a,b)=>grp(a)-grp(b)||String(key(b)).localeCompare(String(key(a)))||cmpShip(a,b));
+  S._relList=list;
+  let h=`<div class="filters">
+    <select id="rf_status" data-rf="r_status" aria-label="Status">${opts(R_STATUS,f.r_status,"All statuses")}</select>
+    <select id="rf_supplier" data-rf="supplier" aria-label="Supplier">${opts(uniq(all.map(s=>s.supplier)),f.supplier,"All suppliers")}</select>
+    <select id="rf_distributor" data-rf="distributor" aria-label="Distributor">${opts(uniq(all.map(s=>s.distributor)),f.distributor,"All distributors")}</select>
+    <span class="lbl">Submitted</span><input id="rf_sub_from" type="date" data-rf="sub_from" value="${esc(f.sub_from||"")}" aria-label="Submitted from"><input id="rf_sub_to" type="date" data-rf="sub_to" value="${esc(f.sub_to||"")}" aria-label="Submitted to">
+    <span class="lbl">Arrival</span><input id="rf_arr_from" type="date" data-rf="arr_from" value="${esc(f.arr_from||"")}" aria-label="Arrival from"><input id="rf_arr_to" type="date" data-rf="arr_to" value="${esc(f.arr_to||"")}" aria-label="Arrival to">
+    <select id="rsort" data-act="rsort" aria-label="Sort"><option value="submitted"${S.rsort==="submitted"?" selected":""}>Newest submitted first</option><option value="arrival"${S.rsort==="arrival"?" selected":""}>Newest arrival first</option></select>
+    ${Object.values(f).some(Boolean)?'<button class="btn small" type="button" data-act="clearrf">Clear filters</button>':""}
+  </div>`;
+  const nsel=[...S.sel].filter(id=>list.some(s=>s._id===id)).length;
+  h+=`<div class="filters"><span class="lbl">${list.filter(s=>grp(s)===0).length} under analysis or on hold · ${list.filter(s=>grp(s)===2).length} released</span><span style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">${nsel?`<button class="btn small primary" type="button" data-act="bulk-release">Mark ${nsel} released</button>`:""}${exportBar("rel")}</span></div>`;
+  h=relReport(everything)+h;
+  h+=`<div class="filters"><label class="chipcheck"><input type="checkbox" id="relDone"${S.relDone?" checked":""}> Also show released (already in Completed)</label></div>`;
+  if(!all.length)return h+`<div class="empty"><b>${everything.length?"Nothing under analysis right now":"Nothing in 2nd release yet"}</b><span>${everything.length?"Released shipments are in the Completed tab. Tick “Also show released” to see them here.":"Shipments arrive here once they are marked Final Arrived in "+esc(destName())+" in In Hub or Main Shipments."}</span></div>`;
+  if(!list.length)return h+`<div class="empty">No releases match these filters.</div>`;
+  const groups=[["Identification",7],["Invoice",3],["Workflow",6],["Arrival",4],["Financial",2],["Notes",2]];
+  h+=`<div class="tablewrap hide-m"><table class="grid"><thead><tr class="groups"><th class="stick"></th>${groups.map(([g,n])=>`<th colspan="${n}">${g}</th>`).join("")}</tr><tr>
+   <th class="stick"><input type="checkbox" id="selAll" data-act="selall" aria-label="Select all"${nsel&&nsel===list.length?" checked":""}></th>
+   ${["Shipment ID","PO Number","Supplier","Distributor","Group","Product / Description","Type","Kepler Invoice No.","Supplier Invoice No.","Clearance Inv No","Date Submitted","Submitted By","Status","Released","Release Date","Completion Status","Arrival Date","Arrived at Final Country","Shipping Method","Tracking / BL / AWB No.","Value","Payment Status","Remarks","Undo"].map(x=>`<th>${x}</th>`).join("")}
+  </tr></thead><tbody>`;
+  list.forEach(s=>{
+    const rel=s.released,t2=rel?"green":s.r_status==="On Hold"?"orange":s.r_status==="Cancelled"?"red":"yellow";
+    const id=esc(s._id);
+    h+=`<tr class="tone-${t2}${rel?" dim":""}">
+      <td class="stick"><input type="checkbox" id="sel_${id}" data-sel="${id}"${S.sel.has(s._id)?" checked":""} aria-label="Select ${esc(s.shipment_id)}"></td>
+      <td><a href="#" class="mono" data-open="${id}" style="color:var(--accent);font-weight:600">${esc(s.shipment_id)}</a></td>
+      <td class="mono">${esc(s.po)}</td><td>${supCell(s)}</td><td>${esc(s.distributor)}</td><td>${esc(s.group)}</td><td>${esc(s.product)}</td><td>${typeTag(s.type)}</td>
+      <td>${keplerLink(s)}</td><td class="mono">${esc(s.supplier_inv)}</td><td class="mono">${esc(s.clearance_inv)}</td>
+      <td class="edit"><input type="date" id="ds_${id}" data-r="${id}" data-k="date_submitted" value="${esc(s.date_submitted||"")}"></td>
+      <td class="edit"><input type="text" id="sb_${id}" data-r="${id}" data-k="submitted_by" value="${esc(s.submitted_by||"")}" placeholder="Name"></td>
+      <td class="edit"><select id="rs_${id}" data-r="${id}" data-k="r_status">${opts(R_STATUS,s.r_status||"Under Analysis",null)}</select></td>
+      <td class="edit" style="text-align:center"><input type="checkbox" class="tick" id="rl_${id}" data-r="${id}" data-k="released"${rel?" checked":""} aria-label="Released"></td>
+      <td>${fd(s.release_date)}</td><td>${s.completion?'<span class="badge b-ok">Completed</span>':""}</td>
+      <td class="edit"><input type="date" id="ad_${id}" data-r="${id}" data-k="arrival_date" value="${esc(s.arrival_date||"")}"></td>
+      <td>${fd(s.final_date)}</td><td>${esc(s.method)}</td><td class="mono">${esc(s.tracking)}</td><td class="num">${money(s.value)}</td>
+      <td class="paycell ${esc(s.payment||"")}">${esc(s.payment||"")}</td>
+      <td class="edit"><input type="text" id="rm_${id}" data-r="${id}" data-k="remarks2" maxlength="160" value="${esc(s.remarks2||"")}" placeholder="Add remark" style="max-width:240px"></td>
+      <td class="edit">${undoBtn(s)}</td>
+    </tr>`;
+  });
+  h+=`</tbody></table></div>`;
+  h+=`<div class="cards">${list.map(s=>{const rel=s.released,t2=rel?"green":s.r_status==="On Hold"?"orange":s.r_status==="Cancelled"?"red":"yellow";return`<div class="card tone-${t2}" data-rcard="${esc(s._id)}" style="${rel?"opacity:.7":""}"><div class="card-h"><b>${esc(s.shipment_id)}</b><span style="color:var(--muted);font-size:12.5px">${esc(s.supplier||"")}</span></div><div class="meta"><span>Kepler inv. <span class="mono">${esc(s.kepler_inv||"—")}</span></span></div><div class="prod">${esc(s.product||"—")}</div><div class="meta">${relBadge(s)}<span>Arrival ${fd(s.arrival_date||s.final_date)||"—"}</span>${rel?'<span style="color:var(--ok);font-weight:700">✓ Released</span>':""}</div>${s.remarks2?`<div class="meta">${esc(s.remarks2)}</div>`:""}</div>`}).join("")}<p style="margin:0;font-size:12px;color:var(--muted)">Tap a card for details. Press and hold for quick actions.</p></div>`;
+  return h;
+}
+
+/* ---------- settings ---------- */
+function viewSettings(){
+  const st=S.settings,M=me(),groupNames=st.groups.map(g=>g.name);
+  const tabs=[["master","Master data"],["lists","Dropdown lists"],...(M&&M.admin?[["users","Users & access"]]:[]),["prefs","Preferences & export"],["help","How to use"]];
+  if(!tabs.some(t=>t[0]===S.setTab))S.setTab="master";
+  let h=`<div class="set-tabs" role="tablist">${tabs.map(([k,t])=>`<button type="button" role="tab" class="${S.setTab===k?"on":""}" aria-selected="${S.setTab===k}" data-settab="${k}">${t}</button>`).join("")}</div>`;
+  if(S.setTab==="master"){
+    h+=`<div class="set-grid3">
+    <div class="panel compact"><div class="panel-h"><h3>Suppliers</h3><span class="eyebrow">${st.suppliers.length} · supplier → group</span></div>
+     <table class="mtable fixed"><colgroup><col style="width:42%"><col><col style="width:30px"></colgroup><tbody>${st.suppliers.map((s,i)=>`<tr><td>${esc(s.name)}</td><td><select id="sg_${i}" data-sup="${i}" aria-label="Group for ${esc(s.name)}">${opts(groupNames,s.group)}</select></td><td class="x"><button class="xbtn" type="button" data-delsup="${i}" aria-label="Remove ${esc(s.name)}">✕</button></td></tr>`).join("")}</tbody></table>
+     <form class="addrow" data-form="sup"><input id="ns_name" name="name" placeholder="New supplier" required><select id="ns_group" name="group" aria-label="Group">${opts(groupNames,"","Group")}</select><button class="btn small" type="submit">Add</button></form></div>
+    <div class="panel compact"><div class="panel-h"><h3>Groups</h3><span class="eyebrow">${st.groups.length} · country, ref. std, COA</span></div>
+     <div style="overflow-x:auto"><table class="mtable"><thead><tr><th>Group</th><th>Country</th><th>Ref. Std</th><th>COA</th><th></th></tr></thead><tbody>${st.groups.map((g,i)=>`<tr><td>${esc(g.name)}</td><td><select id="gc_${i}" data-grp="${i}" data-gk="country" aria-label="Country">${opts(st.countries,g.country)}</select></td><td><select id="gr_${i}" data-grp="${i}" data-gk="ref" aria-label="Ref standard">${opts(L("refstd"),g.ref)}</select></td><td><select id="go_${i}" data-grp="${i}" data-gk="coa" aria-label="COA">${opts(L("coa"),g.coa)}</select></td><td class="x"><button class="xbtn" type="button" data-delgrp="${i}" aria-label="Remove ${esc(g.name)}">✕</button></td></tr>`).join("")}</tbody></table></div>
+     <form class="addrow" data-form="grp"><input id="ng_name" name="name" placeholder="New group" required><select id="ng_country" name="country" aria-label="Country">${opts(st.countries,"","Country")}</select><button class="btn small" type="submit">Add</button></form></div>
+    <div class="panel compact">
+     <div class="listcard flat"><div class="panel-h"><h3>Distributors</h3><span class="eyebrow">${st.distributors.length}</span></div><div class="chips">${st.distributors.map((d,i)=>`<span class="chip">${esc(d)}<button type="button" data-delarr="distributors" data-i="${i}" aria-label="Remove ${esc(d)}">✕</button></span>`).join("")}</div><form class="addrow" data-form="arr" data-arr="distributors"><input id="na_distributors" name="v" placeholder="Add distributor" required><button class="btn small" type="submit">Add</button></form></div>
+     <div class="listcard flat"><div class="panel-h"><h3>Countries</h3><span class="eyebrow">${st.countries.length}</span></div><div class="chips">${st.countries.map((d,i)=>`<span class="chip">${esc(d)}<button type="button" data-delarr="countries" data-i="${i}" aria-label="Remove ${esc(d)}">✕</button></span>`).join("")}</div><form class="addrow" data-form="arr" data-arr="countries"><input id="na_countries" name="v" placeholder="Add country" required><button class="btn small" type="submit">Add</button></form></div>
+    </div></div>`;
+  }
+  if(S.setTab==="lists"){
+    h+=`<div class="lists-grid">${Object.keys(st.lists).map(k=>`<div class="listcard"><div class="panel-h"><h3>${esc(st.listNames[k]||k)}</h3><span class="eyebrow">${st.lists[k].length}</span></div><div class="chips">${st.lists[k].map((d,i)=>`<span class="chip">${esc(d)}<button type="button" data-dellist="${k}" data-i="${i}" aria-label="Remove ${esc(d)}">✕</button></span>`).join("")}</div><form class="addrow" data-form="list" data-list="${k}"><input id="nl_${k}" name="v" placeholder="Add value" required><button class="btn small" type="submit">Add</button></form></div>`).join("")}</div>`;
+  }
+  if(S.setTab==="users"&&M&&M.admin){
+    ensureUsers();const us=users();
+    h+=`<div class="panel compact"><div class="panel-h"><h3>Users &amp; access</h3><span class="eyebrow">${us.length} user${us.length===1?"":"s"}</span></div>
+    <div style="overflow-x:auto"><table class="mtable users"><thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Sections they can open</th><th>Set new password</th><th></th></tr></thead><tbody>
+    ${us.map(u=>{const id=esc(u.id),self=u.id===M.id;return`<tr>
+      <td><input id="un_${id}" data-u="${id}" data-uk="name" value="${esc(u.name||"")}" aria-label="Name"></td>
+      <td><input id="uu_${id}" data-u="${id}" data-uk="user" value="${esc(u.user)}" aria-label="Username" class="mono"></td>
+      <td><select id="ur_${id}" data-u="${id}" data-uk="admin" aria-label="Role"><option value="1"${u.admin?" selected":""}>Admin</option><option value="0"${u.admin?"":" selected"}>User</option></select>${self?'<div class="you">you</div>':""}</td>
+      <td><div class="mods">${MODS.map(([k,t])=>`<label class="mod${u.admin||(u.modules||[]).includes(k)?" on":""}${u.admin?" locked":""}"><input type="checkbox" id="um_${id}_${k}" data-um="${id}" data-mod="${k}"${u.admin||(u.modules||[]).includes(k)?" checked":""}${u.admin?" disabled":""}>${t}</label>`).join("")}</div></td>
+      <td><span class="addrow"><input id="upw_${id}" type="password" placeholder="New password" autocomplete="new-password" aria-label="New password for ${esc(u.user)}"><button class="btn small" type="button" data-upw="${id}">Set</button></span></td>
+      <td class="x">${self?"":`<button class="btn small danger" type="button" data-udel="${id}">${S.uDel===u.id?"Tap again":"Remove"}</button>`}</td></tr>`}).join("")}
+    </tbody></table></div>
+    <form class="adduser" data-form="user" autocomplete="off">
+      <input id="nu_name" name="name" placeholder="Full name" required>
+      <input id="nu_user" name="user" placeholder="Username" required class="mono">
+      <input id="nu_pass" name="pass" type="password" placeholder="Password (4+ characters)" autocomplete="new-password" required>
+      <select id="nu_role" name="role" aria-label="Role"><option value="0">User</option><option value="1">Admin</option></select>
+      <button class="btn small primary" type="submit">Add user</button>
+    </form>
+    <p class="note">Admins can open every section and manage users. For other users, tick the sections they can open; tabs they can't open are hidden. New users start with every section except Settings. This sign-in is a screen lock inside the app. Who can open the app link itself is set by how you share it.</p></div>`;
+  }
+  if(S.setTab==="prefs"){
+    h+=`<div class="set-grid2"><div class="panel compact"><div class="panel-h"><h3>Preferences</h3></div>
+     <div class="prefs">
+      <label class="fld"><span>Currency (ISO code)</span><input id="p_currency" data-pref="currency" value="${esc(st.currency)}" maxlength="3"></label>
+      <label class="fld"><span>Default final destination</span><select id="p_dest" data-pref="destCountry">${opts(st.countries,st.destCountry)}</select></label>
+      <label class="fld"><span>ETD reminder (days ahead)</span><input id="p_etd" type="number" min="1" data-pref="etdDays" value="${esc(st.etdDays)}"></label>
+      <label class="fld"><span>Analysis reminder after (days)</span><input id="p_an" type="number" min="1" data-pref="analysisDays" value="${esc(st.analysisDays)}"></label>
+     </div></div>
+     <div class="panel compact"><div class="panel-h"><h3>Export all data</h3></div><p class="note">One Excel workbook with sheets for Job Open, Main Shipments, In Hub, 2nd Release, the full 2nd Release report and Completed.</p><div><button class="btn primary" type="button" data-act="export-all">Export all to Excel</button></div></div></div>`;
+  }
+  if(S.setTab==="help"){
+    h+=`<div class="panel compact help"><ol>
+     <li><b>Job Open:</b> open a job with Date, PO, Supplier, Type, Supplier Invoice and Distributor. Create the shipment from it, or it links to a shipment with the same PO.</li>
+     <li><b>Main Shipments:</b> click any cell to change it. Picking a Supplier fills Group, Country, Ref. Standard and COA.</li>
+     <li><b>In Hub:</b> set Import Permit to Received and choose a Transit Hub, and the shipment moves to In Hub. Tick Shipment Received, Attested Documents Received, then Final Arrived.</li>
+     <li><b>2nd Release:</b> a shipment arrives here when marked Final Arrived. Fill Date Submitted and tick Released to move it to Completed.</li>
+     <li><b>Undo:</b> use “↩” in Completed or 2nd Release to send a shipment back one step if something was ticked by mistake.</li>
+     <li><b>Export:</b> every tab has Export Excel; Preferences &amp; export has a full workbook.</li></ol></div>`;
+  }
+  return h;
+}
+
+/* ================= drawer (detail / edit) ================= */
+let D=null;
+function openDrawer(s,isNew){
+  D={s:structuredClone(s),isNew,stageTouched:false,confirmDel:false};
+  drawDrawer();
+}
+function fieldHtml(key,label,kind,s,auto){
+  const v=s[key]??"",id="f_"+key;let inp;
+  const st=S.settings;
+  if(kind==="text")inp=`<input id="${id}" name="${key}" type="text" value="${esc(v)}">`;
+  else if(kind==="date")inp=`<input id="${id}" name="${key}" type="date" value="${esc(v)}">`;
+  else if(kind==="money")inp=`<input id="${id}" name="${key}" type="number" step="0.01" min="0" value="${esc(v)}" placeholder="${esc(st.currency)}">`;
+  else if(kind.startsWith("list:"))inp=`<select id="${id}" name="${key}">${opts(L(kind.slice(5)),v)}</select>`;
+  else if(kind==="supplier")inp=`<select id="${id}" name="${key}">${opts(st.suppliers.map(x=>x.name),v)}</select>`;
+  else if(kind==="group")inp=`<select id="${id}" name="${key}">${opts(st.groups.map(x=>x.name),v)}</select>`;
+  else if(kind==="distributor")inp=`<select id="${id}" name="${key}">${opts(st.distributors,v)}</select>`;
+  else if(kind==="country")inp=`<select id="${id}" name="${key}">${opts(st.countries,v)}</select>`;
+  else if(kind==="stage")inp=`<select id="${id}" name="${key}">${STAGES.map((n,i)=>`<option value="${i+1}"${(+v||1)===i+1?" selected":""}>${i+1}. ${esc(n)}</option>`).join("")}</select>`;
+  return`<label class="fld${auto?" auto":""}"><span>${esc(label)}</span>${inp}</label>`;
+}
+function drawDrawer(){
+  const s=D.s,F=(k,auto)=>fieldHtml(k,COLMAP[k][1],COLMAP[k][2],s,auto);
+  const sibs=S.ships.filter(x=>x.shipment_id&&x.shipment_id===s.shipment_id&&x._id!==s._id);
+  const st=+s.stage||1,p=progress(s);
+  const html=`<div class="scrim" data-act="close"></div><aside class="drawer" role="dialog" aria-modal="true" aria-label="Shipment details">
+   <div class="drawer-h"><div style="flex:1;min-width:0"><div class="eyebrow">${D.isNew?"New line item":esc(PHASES.find(x=>x.k===phase(s)).t)+" · "+esc(whereText(s))}</div><h2 class="mono" style="font-family:var(--f-mono);font-size:18px">${esc(s.shipment_id||"New shipment")}</h2></div>${D.isNew?"":`<button class="btn small" type="button" data-track="${esc(s._id)}">Tracking view</button>`}<button class="iconbtn" type="button" data-act="close" aria-label="Close">✕</button></div>
+   <form class="drawer-b" id="shipForm">
+    <div style="display:grid;gap:6px"><div style="display:flex;justify-content:space-between;font-size:13px"><b>${esc(stageLabel(s))}</b><span class="num">${p}%</span></div><div class="stagebar">${STAGES.map((n,i)=>`<i class="${i<st?"on":""}" title="${esc(n)}"></i>`).join("")}</div>
+    ${(()=>{const jb=jobFor(s);return jb?`<div class="sibs"><span style="color:var(--muted)">Linked job:</span><button class="btn small" type="button" data-nav="jobs">${esc(jb.job_id)} · opened ${fd(jb.date)}</button></div>`:""})()}
+    ${sibs.length?`<div class="sibs"><span style="color:var(--muted)">Other lines in this shipment:</span>${sibs.map(x=>`<button class="btn small" type="button" data-open="${esc(x._id)}">${esc(x.type||"Line")} · ${esc(x.product||"")}</button>`).join("")}</div>`:""}</div>
+    <fieldset><legend>Identification</legend>${F("shipment_id")}${F("po")}${F("supplier")}${F("type")}${F("supplier_inv")}${F("distributor")}${F("kepler_inv")}${F("permit")}${F("group",1)}<div class="fld wide">${F("product").replace('class="fld"','class="fld"')}</div></fieldset>
+    <fieldset><legend>Checks & compliance</legend>${F("qty")}${F("ref_std",1)}${F("country",1)}${F("temp")}${F("docs")}${F("coa",1)}${F("artwork")}${F("attestation")}</fieldset>
+    <fieldset><legend>Movement</legend>${F("booking")}${F("etd")}${F("shipped_date")}<span class="fld" aria-hidden="true"></span>
+      <label class="fld"><span>Transit hub</span><select id="f_transit_hub" name="transit_hub">${opts(L("hub"),s.transit_hub)}</select></label>${F("hub_date")}
+      <label class="fld"><span>Final destination country</span><select id="f_final_country" name="final_country">${opts(S.settings.countries,s.final_country||S.settings.destCountry||"")}</select></label>${F("final_date")}${F("method")}<div class="fld wide">${F("tracking")}</div></fieldset>
+    <fieldset><legend>Payment</legend>${F("payment")}${F("value")}${F("clearance_inv")}</fieldset>
+    <fieldset><legend>In hub</legend>
+      <label class="fld inline"><input type="checkbox" class="tick" id="f_orig_attested" name="orig_attested"${s.orig_attested?" checked":""}><span style="font-size:13px;color:var(--ink);font-weight:600">Original attested received in hub</span></label>
+      <label class="fld inline"><input type="checkbox" class="tick" id="f_ready_move" name="ready_move"${s.ready_move?" checked":""}><span style="font-size:13px;color:var(--ink);font-weight:600">Ready to move</span></label>
+      <label class="fld"><span>Forwarder</span><input id="f_forwarder" name="forwarder" type="text" value="${esc(s.forwarder||"")}"></label>
+      <label class="fld inline"><input type="checkbox" class="tick" id="f_final_arrived" name="final_arrived"${s.final_arrived?" checked":""}><span style="font-size:13px;color:var(--ink);font-weight:600">Final arrived in ${esc(destOf(s))} (moves to 2nd Release)</span></label>
+      <label class="fld inline"><input type="checkbox" class="tick" id="f_fwd_ok" name="fwd_ok"${s.fwd_ok?" checked":""}><span style="font-size:13px;color:var(--ink);font-weight:600">Forwarder approved for final destination${s.fwd_date?" · "+fd(s.fwd_date):""}</span></label>
+    </fieldset>
+    <fieldset><legend>Status</legend>${F("stage")}
+      <label class="fld"><span>Flag</span><select id="f_flag" name="flag">${[["","Active"],["hold","On Hold"],["cancelled","Cancelled"]].map(([v,t])=>`<option value="${v}"${(s.flag||"")===v?" selected":""}>${t}</option>`).join("")}</select></label>
+      <label class="fld inline wide"><input type="checkbox" class="switch" id="f_second_release" name="second_release"${s.second_release?" checked":""}><span style="font-size:13px;color:var(--ink);font-weight:600">2nd Release${s.second_release?" · "+esc(s.r_status||"Under Analysis"):""}</span></label>
+      <label class="fld wide"><span>Remarks</span><textarea id="f_remarks" name="remarks" rows="2" maxlength="200">${esc(s.remarks||"")}</textarea></label></fieldset>
+   </form>
+   <div class="drawer-f"><button class="btn primary" type="button" data-act="save">${D.isNew?"Add shipment":"Save changes"}</button>
+     ${D.isNew?"":`<button class="btn" type="button" data-act="addline">Add line item to ${esc(s.shipment_id)}</button>`}
+     <button class="btn" type="button" data-act="close">Cancel</button>
+     ${D.isNew?"":`<button class="btn danger" type="button" data-act="del" style="margin-left:auto">${D.confirmDel?"Tap again to delete":"Delete"}</button>`}</div>
+  </aside>`;
+  $("#overlay").innerHTML=html;
+}
+function milestones(s){
+  const t=today(),st=+s.stage||1,past=d=>d&&d<=t;
+  const docsDone=s.docs==="Docs Received"||s.docs==="Complete";
+  const shipDate=s.shipped_date||(past(s.etd)?s.etd:"");
+  const hubc=s.transit_hub?(HUBC[s.transit_hub]||s.transit_hub):"";
+  const M=[
+    {t:"Order initiated",d:s.initiated,where:s.country,info:s.po?"PO "+s.po:"",done:!!(s.initiated||s.po||s.supplier_inv)},
+    {t:"Supplier confirmed",info:s.supplier_inv?"Supplier invoice "+s.supplier_inv:"",done:!!s.supplier_inv||st>=2},
+    {t:"Supplier documents",info:s.docs||"Not started",done:docsDone||st>=5,warn:s.docs==="Pending"},
+    {t:"Import permit",info:s.permit||"Not set",done:s.permit==="Received"||s.permit==="No Need"||st>=7},
+    {t:"Checks: COA · artwork · attestation",info:["COA "+(s.coa||"—"),"Artwork "+(s.artwork||"—"),"Attestation "+(s.attestation||"—")].join(" · "),done:(s.artwork==="Yes"&&(s.attestation==="Yes"))||st>=10},
+    {t:"Booking from transit",d:s.booking,done:!!s.booking||st>=11},
+    {t:"Shipped from supplier",d:shipDate,where:s.country,info:[s.method,s.tracking?"AWB/BL "+s.tracking:"",!shipDate&&s.etd?"ETD "+fd(s.etd):""].filter(Boolean).join(" · "),done:!!shipDate||st>=12},
+    {t:"Arrived at transit hub",d:s.hub_date&&past(s.hub_date)?s.hub_date:"",where:hubc?s.transit_hub+", "+hubc:"",done:past(s.hub_date)||st>=13,skip:!s.transit_hub&&!s.hub_date&&st>=14},
+    {t:"Original attested received in hub",done:!!s.orig_attested,skip:!s.transit_hub&&!s.hub_date},
+    {t:"Forwarder approved for final destination",d:s.fwd_date,info:s.forwarder||"",done:!!s.fwd_ok,skip:!s.transit_hub&&!s.hub_date},
+    {t:"Customs clearance",info:s.clearance_inv?"Clearance invoice "+s.clearance_inv:"",where:destOf(s),done:st>=14||past(s.final_date)},
+    {t:"Arrived at final country",d:s.final_date,where:destOf(s),done:past(s.final_date)||st>=15},
+    {t:"Payment",info:s.payment||"Not set",done:s.payment==="Paid",warn:s.payment==="Pending"||s.payment==="Partial"},
+  ];
+  if(s.second_release){
+    M.push({t:"2nd release: submitted for analysis",d:s.date_submitted,info:s.submitted_by?"By "+s.submitted_by:"",done:!!s.date_submitted});
+    M.push({t:"Released",d:s.release_date,info:s.remarks2||"",done:!!s.released});
+  }
+  const L=M.filter(m=>!m.skip);
+  const cur=L.findIndex(m=>!m.done);if(cur>=0)L[cur].current=true;
+  return L;
+}
+function openTrack(id){
+  const s=S.ships.find(x=>x._id===id);if(!s)return;
+  const lines=S.ships.filter(x=>x._id!==s._id&&((s.kepler_inv&&x.kepler_inv===s.kepler_inv)||(x.shipment_id&&x.shipment_id===s.shipment_id))).sort(cmpShip);
+  const ph=phaseOf(s),p=progress(s),M=milestones(s);
+  const row=(l,v)=>v===""||v==null?"":`<div><dt>${esc(l)}</dt><dd>${v}</dd></div>`;
+  const e=v=>esc(v||"");
+  $("#overlay").innerHTML=`<div class="scrim" data-act="close"></div><aside class="drawer track" role="dialog" aria-modal="true" aria-label="Shipment tracking">
+   <div class="drawer-h"><div style="flex:1;min-width:0"><div class="eyebrow">Kepler invoice</div><h2 class="mono" style="font-family:var(--f-mono);font-size:20px">${esc(s.kepler_inv||"Not issued yet")}</h2></div><button class="btn small" type="button" data-open="${esc(s._id)}">Edit</button><button class="iconbtn" type="button" data-act="close" aria-label="Close">✕</button></div>
+   <div class="drawer-b">
+    <div class="trk-hero" style="--pc:${ph.c}">
+      <div class="trk-top"><div><span class="mono" style="font-weight:700">${esc(s.shipment_id)}</span> · ${typeTag(s.type)}<div class="trk-prod">${esc(s.product||"—")}</div><div style="color:var(--muted);font-size:13px">${supCell(s)} ${s.distributor?" → "+esc(s.distributor):""}</div></div>
+      <div class="trk-now"><span class="eyebrow">Now in</span><b>${esc(nowIn(s))}</b><span class="stage" style="--pc:${ph.c}">${esc(ph.t)}</span></div></div>
+      <div class="trk-route">${[["Supplier",s.country||"—",["supplier","booked"]],["Hub",s.transit_hub?(s.transit_hub+(HUBC[s.transit_hub]&&HUBC[s.transit_hub]!==s.transit_hub?", "+HUBC[s.transit_hub]:"")):"Direct",["transit","hub"]],["Final",destOf(s),["customs","arrived","analysis","done"]]].map(([a,b,ks],i,arr)=>{const idx=["supplier","booked","transit","hub","customs","arrived","analysis","done"].indexOf(phase(s));const my=Math.max(...ks.map(k=>["supplier","booked","transit","hub","customs","arrived","analysis","done"].indexOf(k)));const reached=idx>=Math.min(...ks.map(k=>["supplier","booked","transit","hub","customs","arrived","analysis","done"].indexOf(k)));return`<div class="rt${reached?" on":""}${ks.includes(phase(s))?" here":""}"><i></i><span class="eyebrow">${a}</span><b>${esc(b)}</b></div>`}).join('<div class="rt-line"></div>')}</div>
+      <div class="progress"><span class="bar thick" style="flex:1"><i style="width:${p}%;background:${ph.c}"></i></span><b class="num" style="color:${ph.c}">${p}%</b><span style="font-size:12.5px;color:var(--muted)">${esc(stageLabel(s))}</span></div>
+    </div>
+    <div class="panel"><div class="panel-h"><h2>Tracking</h2><span class="eyebrow">${M.filter(m=>m.done).length} of ${M.length} steps done</span></div>
+     <ol class="tl">${M.map(m=>`<li class="${m.done?"done":m.current?"cur":""}${!m.done&&m.warn?" warn":""}"><i>${m.done?"✓":""}</i><div><b>${esc(m.t)}</b><span>${[m.d?fd(m.d):"",m.where?esc(m.where):"",m.info?esc(m.info):""].filter(Boolean).join(" · ")||(m.done?"Done":m.current?"Next step":"Pending")}</span></div></li>`).join("")}</ol></div>
+    <div class="panel"><div class="panel-h"><h2>Full details</h2></div>
+     <dl class="trk-grid">
+      ${row("Shipment ID",e(s.shipment_id))}${row("Initiated",fd(s.initiated))}${row("PO Number",e(s.po))}${row("Supplier",e(s.supplier))}${row("Supplier No.",seqOf(s)?seqOf(s).n+"-"+seqOf(s).t:"")}${row("Group",e(s.group))}${row("Distributor",e(s.distributor))}${row("Type",e(s.type))}
+      ${row("Supplier Invoice",e(s.supplier_inv))}${row("Kepler Invoice",e(s.kepler_inv))}${row("Clearance Inv No",e(s.clearance_inv))}${row("Value",money(s.value))}${row("Payment",payBadge(s.payment))}
+      ${row("Import Permit",chip(s.permit))}${row("Qty Checked",chip(s.qty))}${row("Ref. Standard",chip(s.ref_std))}${row("Supplier Country",e(s.country))}${row("Temp",e(s.temp))}${row("Supplier Documents",chip(s.docs))}${row("COA",chip(s.coa))}${row("Artwork",chip(s.artwork))}${row("Attestation",chip(s.attestation))}
+      ${row("Booking from Transit",fd(s.booking))}${row("ETD",fd(s.etd))}${row("Shipped from Supplier",fd(s.shipped_date))}${row("Shipping Method",e(s.method))}${row("Tracking / BL / AWB",e(s.tracking))}${row("Transit Hub",e(s.transit_hub))}${row("Arrived at Hub",fd(s.hub_date))}
+      ${row("Original Attested in Hub",s.transit_hub||s.hub_date?(s.orig_attested?chip("Received"):chip("Pending")):"")}${row("Forwarder",e(s.forwarder))}${row("Forwarder Approved",s.fwd_ok?chip("Yes")+" "+fd(s.fwd_date):"")}
+      ${row("Final Destination",e(destOf(s)))}${row("Arrived at Final Country",fd(s.final_date))}${row("2nd Release",s.second_release?relBadge(s):"")}${row("Date Submitted",fd(s.date_submitted))}${row("Submitted By",e(s.submitted_by))}${row("Release Date",fd(s.release_date))}
+      ${row("Flag",s.flag==="hold"?chip("On Hold"):s.flag==="cancelled"?'<span class="sc c-bad">Cancelled</span>':"")}${row("Remarks",e([s.remarks,s.hub_remarks,s.remarks2].filter(Boolean).join(" · ")))}
+     </dl></div>
+    ${lines.length?`<div class="panel"><div class="panel-h"><h2>Other lines${s.kepler_inv?" on this invoice":" in "+esc(s.shipment_id)}</h2></div><div style="display:grid;gap:8px">${lines.map(x=>`<button type="button" class="mini" data-track="${esc(x._id)}" style="--sc:${phaseOf(x).c};text-align:left"><span class="id"><span>${esc(x.shipment_id)}</span>${typeTag(x.type)}</span><span class="p">${esc(x.product||"—")}</span><span class="w">${esc(phaseOf(x).t)} · ${esc(whereText(x))}</span></button>`).join("")}</div></div>`:""}
+   </div></aside>`;
+  D=null;
+}
+function readForm(){
+  const fm=$("#shipForm"),s=D.s;
+  [...fm.elements].forEach(el=>{if(!el.name)return;if(el.type==="checkbox")s[el.name]=el.checked;else s[el.name]=el.name==="stage"?+el.value:el.value.trim()});
+  return s;
+}
+function closeDrawer(){$("#overlay").innerHTML="";D=null;if(pendingRender)render()}
+async function saveDrawer(){
+  const prev=S.ships.find(x=>x._id===D.s._id)||{};
+  const s=readForm();
+  if(!s.shipment_id){toast("Shipment ID is required");$("#f_shipment_id").focus();return}
+  if(!D.stageTouched)s.stage=Math.max(+s.stage||1,autoStage(s));
+  if(!!prev.final_arrived!==!!s.final_arrived)setArrived(s,!!s.final_arrived);
+  else if(s.final_date&&s.final_date<=today()&&!s.final_arrived&&s.final_date!==prev.final_date)setArrived(s,true);
+  if(s.orig_attested&&!prev.orig_attested&&s.attestation!=="Yes")s.attestation="Yes";
+  // release automation from drawer changes
+  const patch={};
+  if(!!prev.second_release!==!!s.second_release)patch.second_release=s.second_release;
+  if(+prev.stage!==+s.stage)patch.stage=s.stage;
+  applyRelease(s,patch);
+  if(s.flag==="cancelled"&&s.second_release&&!s.released)s.r_status="Cancelled";
+  if(s.flag==="hold"&&s.second_release&&!s.released)s.r_status="On Hold";
+  if(!s.flag&&s.second_release&&!s.released&&(s.r_status==="On Hold"||s.r_status==="Cancelled"))s.r_status="Under Analysis";
+  if(s.fwd_ok&&!s.fwd_date)s.fwd_date=today();if(!s.fwd_ok)s.fwd_date="";
+  if(!s.created)s.created=Date.now();
+  if(s.permit==="Received"&&prev.permit!=="Received"){s.permit_date=today();setTimeout(()=>toast("Import permit confirmed for "+s.shipment_id+". It's now on the dashboard, ready to arrange."),1200)}
+  if(s.permit!=="Received")s.permit_date="";
+  const jb=jobFor(s);if(jb){s.job_id=jb._id;JOB_SYNC.forEach(([jk,sk])=>{if(!s[sk]&&jb[jk])s[sk]=jb[jk]})}
+  s.progress=progress(s);
+  closeDrawer();
+  await persist(s);
+  await syncShipToJob(s);
+  toast(D===null?"Saved "+s.shipment_id:"Saved");
+}
+
+/* ================= quick actions sheet (mobile tab 2) ================= */
+function undoInfo(s){
+  if(isDone(s))return s.second_release?["2nd Release","↩ Back to 2nd Release"]:["Main Shipments","↩ Reopen"];
+  if(s.second_release){const c=structuredClone(s);setArrived(c,false);const where=inHub(c)?"In Hub":"Main Shipments";return[where,"↩ Back to "+where]}
+  return null;
+}
+async function doUndo(id){
+  const s=structuredClone(S.ships.find(x=>x._id===id));if(!s)return;const info=undoInfo(s);if(!info)return;
+  if(isDone(s)){if(s.second_release)applyRelease(s,{released:false});else s.stage=Math.min(16,autoStage({...s,released:false,second_release:false}))}
+  else if(s.second_release)setArrived(s,false);
+  s.progress=progress(s);S.undoArm=null;await persist(s);toast(s.shipment_id+" moved back to "+info[0]);
+}
+function undoBtn(s){const info=undoInfo(s);if(!info)return"";const armed=S.undoArm===s._id;return`<button class="btn small undo${armed?" armed":""}" type="button" data-undo="${esc(s._id)}" title="Move back to ${esc(info[0])}">${armed?"Tap again to confirm":info[1]}</button>`}
+function openSheet(id){
+  const s=S.ships.find(x=>x._id===id);if(!s)return;
+  $("#overlay").innerHTML=`<div class="scrim" data-act="close"></div><div class="sheet" role="dialog" aria-label="Quick actions"><div><div class="eyebrow">${esc(s.shipment_id)}</div><b>${esc(s.product||"")}</b></div>
+   ${s.released?`<button class="btn" type="button" data-q="unrelease" data-id="${esc(id)}">Undo release</button>`:`<button class="btn primary" type="button" data-q="release" data-id="${esc(id)}">Mark released ✓</button>`}
+   ${undoInfo(s)?`<button class="btn" type="button" data-q="undo" data-id="${esc(id)}">${esc(undoInfo(s)[1])}</button>`:""}
+   <button class="btn" type="button" data-q="hold" data-id="${esc(id)}">${s.r_status==="On Hold"?"Take off hold":"Put on hold"}</button>
+   <label class="fld"><span>Remark</span><textarea id="q_remark" rows="2">${esc(s.remarks2||"")}</textarea></label>
+   <button class="btn" type="button" data-q="remark" data-id="${esc(id)}">Save remark</button>
+   <button class="btn" type="button" data-act="close">Close</button></div>`;
+}
+async function quick(act,id){
+  if(act==="undo"){closeDrawer();await doUndo(id);return}
+  const s=structuredClone(S.ships.find(x=>x._id===id));if(!s)return;
+  if(act==="release")applyRelease(s,{released:true});
+  else if(act==="unrelease")applyRelease(s,{released:false});
+  else if(act==="hold")applyRelease(s,{r_status:s.r_status==="On Hold"?"Under Analysis":"On Hold"});
+  else if(act==="remark")s.remarks2=$("#q_remark").value.trim();
+  s.progress=progress(s);
+  closeDrawer();await persist(s);toast(act==="remark"?"Remark saved":"Updated "+s.shipment_id);
+}
+
+/* ================= export ================= */
+function loadXLSX(){return new Promise((res,rej)=>{if(window.XLSX)return res(window.XLSX);const sc=document.createElement("script");sc.src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";sc.onload=()=>res(window.XLSX);sc.onerror=()=>rej(new Error("Excel library didn't load"));document.head.appendChild(sc)})}
+function rowsFor(kind,list){
+  const yn=v=>v?"Yes":"No",sq=s=>{const q=seqOf(s);return q?s.supplier+" "+q.n+"-"+q.t:""};
+  if(kind==="main")return list.map(s=>{const o={};COLS.forEach(([k,l])=>{if(k==="now_in"){o[l]=nowIn(s);return}if(k==="hub_status"){o[l]=[s.hub_date&&s.hub_date<=today()?"Shipment received":"",s.orig_attested?"Attested documents received":"",s.final_arrived?"Final arrived":""].filter(Boolean).join(", ");return}if(k==="final_date"){o["Final Destination Country"]=destOf(s)}o[l]=k==="stage"?stageLabel(s):k==="progress"?progress(s)+"%":k==="second_release"?yn(s.second_release):k==="hub_date"?[s.transit_hub,s.hub_date].filter(Boolean).join(" "):(s[k]??"");if(k==="supplier")o["Supplier Shipment No."]=sq(s)});o["Where now"]=phaseOf(s).t+" · "+whereText(s);o["Flag"]=s.flag==="hold"?"On Hold":s.flag==="cancelled"?"Cancelled":"Active";o["Remarks"]=s.remarks||"";return o});
+  if(kind==="hub")return list.map(s=>({"Shipment ID":s.shipment_id,"Initiated Date":s.initiated||"","Product / Description":s.product||"","Supplier":s.supplier||"","Supplier Shipment No.":sq(s),"Group":s.group||"","Distributor":s.distributor||"","Kepler Invoice":s.kepler_inv||"","Import Permit":s.permit||"","Transit Hub":s.transit_hub||"","Arrived at Hub":s.hub_date||"","Days in Hub":s.hub_date&&s.hub_date<=today()?diff(s.hub_date,today()):"","Original Attested Received":yn(s.orig_attested),"Ready to Move":yn(s.ready_move),"Forwarder":s.forwarder||"","Forwarder Approved":yn(s.fwd_ok),"Approval Date":s.fwd_date||"","Status":hubStatus(s)[0],"Arrived at Final Country":s.final_date||"","Remarks":s.hub_remarks||""}));
+  if(kind==="jobs")return list.map(j=>{const sh=jobShips(j);return{"Job ID":j.job_id,"Date":j.date||"","PO Number":j.po||"","Supplier":j.supplier||"","Type":j.type||"","Supplier Invoice":j.supplier_inv||"","Distributor":j.distributor||"","Status":jobStatus(j)[0],"Linked Shipments":sh.map(s=>s.shipment_id).join(", "),"Shipment Stage":sh.map(s=>phaseOf(s).t).join(", ")}});
+  return list.map(s=>({"Shipment ID":s.shipment_id,"PO Number":s.po||"","Supplier":s.supplier||"","Supplier Shipment No.":sq(s),"Distributor":s.distributor||"","Group":s.group||"","Product / Description":s.product||"","Type":s.type||"","Kepler Invoice No.":s.kepler_inv||"","Supplier Invoice No.":s.supplier_inv||"","Clearance Inv No":s.clearance_inv||"","Date Submitted":s.date_submitted||"","Submitted By":s.submitted_by||"","Status":s.r_status||"Under Analysis","Released":s.released?"✓":"","Release Date":s.release_date||"","Completion Status":s.completion||"","Arrival Date":s.arrival_date||"","Arrived at Final Country":s.final_date||"","Shipping Method":s.method||"","Tracking / BL / AWB No.":s.tracking||"","Value":s.value||"","Payment Status":s.payment||"","Remarks":s.remarks2||""}));
+}
+function reportRows(list){return list.map(s=>{const a=rowsFor("main",[s])[0],b=rowsFor("rel",[s])[0];const o={...a};Object.keys(b).forEach(k=>{if(!(k in o))o[k]=b[k]});o["Status"]=b["Status"];o["Release Remarks"]=s.remarks2||"";o["Location"]=isDone(s)?"Completed":inRelease(s)?"2nd Release":"Main Shipments";return o})}
+const SHEET={report:"2nd Release Report",jobs:"Job Open",main:"Main Shipments",hub:"In Hub",rel:"2nd Release",done:"Completed"};
+function listFor(kind,current){
+  if(kind==="report")return S.ships.filter(s=>s.second_release).sort((a,b)=>String(b.date_submitted||"").localeCompare(String(a.date_submitted||""))||cmpShip(a,b));
+  if(kind==="jobs")return current?(S._jobList||[]):[...S.jobs].sort((a,b)=>String(a.job_id).localeCompare(String(b.job_id),undefined,{numeric:true}));
+  if(kind==="main")return current?(S._mainList||[]):S.ships.filter(inMain).sort(cmpShip);
+  if(kind==="done")return current?(S._mainList||[]):S.ships.filter(isDone).sort(cmpShip);
+  if(kind==="hub")return current?(S._hubList||[]):hubList(true).sort(cmpShip);
+  if(current){const base=S._relList||[];return S.sel.size?base.filter(s=>S.sel.has(s._id)):base}
+  return S.ships.filter(inRelease).sort(cmpShip);
+}
+async function saveWorkbook(sheets,name){
+  if(!S.dl){toast("File download isn't available here. Use “Copy for Excel” instead.");return}
+  try{
+    const X=await loadXLSX();const wb=X.utils.book_new();
+    sheets.forEach(([title,rows])=>{const ws=rows.length?X.utils.json_to_sheet(rows):X.utils.aoa_to_sheet([["No rows"]]);if(rows.length){ws["!cols"]=Object.keys(rows[0]).map(k=>({wch:Math.min(40,Math.max(k.length,...rows.map(r=>String(r[k]??"").length))+2)}))}X.utils.book_append_sheet(wb,ws,title.slice(0,31))});
+    const buf=X.write(wb,{type:"array",bookType:"xlsx"});
+    await S.dl.save({filename:name+"-"+today()+".xlsx",data:buf});
+  }catch(e){if(e&&e.code==="declined")return;toast("Export didn't finish: "+((e&&e.message)||"try again"))}
+}
+function rowsOf(k){const list=listFor(k,true);return k==="report"||k==="done"?reportRows(list):rowsFor(k,list)}
+function exportRows(kind){const k=kind;const rows=rowsOf(k);saveWorkbook([[SHEET[k],rows]],SHEET[k].replace(/ /g,"-"))}
+function exportAll(){saveWorkbook([["Job Open",rowsFor("jobs",listFor("jobs"))],["Main Shipments",rowsFor("main",listFor("main"))],["In Hub",rowsFor("hub",listFor("hub"))],["2nd Release",rowsFor("rel",listFor("rel"))],["2nd Release Report",reportRows(listFor("report"))],["Completed",reportRows(listFor("done"))]],"Shipment-Tracker-All")}
+function toTSV(rows){if(!rows.length)return"";const ks=Object.keys(rows[0]);const c=v=>String(v??"").replace(/[\t\r\n]+/g," ");return[ks.join("\t"),...rows.map(r=>ks.map(k=>c(r[k])).join("\t"))].join("\n")}
+async function copyRows(kind){
+  const k=kind;const rows=rowsOf(k);const txt=toTSV(rows);
+  if(!txt){toast("Nothing to copy");return}
+  try{await navigator.clipboard.writeText(txt);toast("Copied "+rows.length+" rows. Paste into Excel.")}
+  catch(e){const ta=document.createElement("textarea");ta.value=txt;ta.style.cssText="position:fixed;left:-9999px";document.body.appendChild(ta);ta.select();let ok=false;try{ok=document.execCommand("copy")}catch(_){}ta.remove();toast(ok?"Copied "+rows.length+" rows. Paste into Excel.":"Copy was blocked in this view.")}
+}
+function exportBar(kind){return`<span class="expbar"><button class="btn small" type="button" data-exp="${kind}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Export Excel</button><button class="btn small" type="button" data-copy="${kind}">Copy for Excel</button></span>`}
+
+/* ================= events ================= */
+function go(view){S.view=view;S.sel.clear();try{location.hash=view}catch(e){}render();$("#main").scrollTop=0}
+function openShip(id){const s=S.ships.find(x=>x._id===id);if(s)openDrawer(s,false)}
+function newShip(){
+  openDrawer({_id:newId(),shipment_id:nextShipmentId(),initiated:today(),type:"Shipment",stage:1,payment:"Pending",docs:"Pending",second_release:false},true);
+}
+document.addEventListener("click",async e=>{
+  const t=e.target;
+  const nav=t.closest("[data-nav]");if(nav){if(!can(nav.dataset.nav)){toast("You don't have access to that section");return}go(nav.dataset.nav);closeDrawer();return}
+  const un=t.closest("[data-undo]");if(un){e.stopPropagation();const id=un.dataset.undo;if(S.undoArm!==id){S.undoArm=id;render(true);setTimeout(()=>{if(S.undoArm===id){S.undoArm=null;render()}},4000);return}await doUndo(id);return}
+  const stb=t.closest("[data-settab]");if(stb){S.setTab=stb.dataset.settab;S.uDel=null;render(true);return}
+  const upw=t.closest("[data-upw]");if(upw){const id=upw.dataset.upw,inp=$("#upw_"+id),pw=inp?inp.value:"";if(pw.length<4){toast("Use a password of at least 4 characters");return}const u=S.settings.users.find(x=>x.id===id);if(!u)return;u.hash=pwHash(id,pw).slice(0,32);delete u.pass;saveSettings();toast("Password updated for "+u.user);return}
+  const ud=t.closest("[data-udel]");if(ud){const id=ud.dataset.udel;if(S.uDel!==id){S.uDel=id;render(true);setTimeout(()=>{if(S.uDel===id){S.uDel=null;render()}},4000);return}S.uDel=null;const us=S.settings.users;const u=us.find(x=>x.id===id);if(u&&u.admin&&us.filter(x=>x.admin).length<2){toast("Keep at least one admin");render(true);return}S.settings.users=us.filter(x=>x.id!==id);saveSettings();toast("Removed "+(u?u.user:"user"));return}
+  const jf=t.closest("[data-jf]");if(jf){S.jf=jf.dataset.jf;render();return}
+  const jc=t.closest("[data-jcreate]");if(jc){createShipFromJob(jc.dataset.jcreate);return}
+  const je=t.closest("[data-jedit]");if(je){openJobEdit(je.dataset.jedit);return}
+  const jdl=t.closest("[data-jdel]");if(jdl){const id=jdl.dataset.jdel;if(S.jobDel!==id){S.jobDel=id;if($(".sheet"))openJobEdit(id);else render(true);return}S.jobDel=null;const jb=S.jobs.find(x=>x._id===id);if($(".sheet"))closeDrawer();for(const s0 of S.ships.filter(s=>s.job_id===id)){const s=structuredClone(s0);delete s.job_id;await persist(s)}await removeJob(id);toast("Deleted "+(jb?jb.job_id:"job")+". Linked shipments were kept.");return}
+  if(t.closest("[data-j]")||t.closest("[data-jd]")||t.closest("[data-c]")){return}
+  const ex=t.closest("[data-exp]");if(ex){exportRows(ex.dataset.exp);return}
+  const cp=t.closest("[data-copy]");if(cp){copyRows(cp.dataset.copy);return}
+  const kp=t.closest("[data-kpi]");if(kp){S.kpi=kp.dataset.kpi;render();return}
+  if(t.closest("[data-sr]")){e.stopPropagation();return}
+  if(t.closest("[data-sel]")||t.closest("[data-r]")||t.closest("[data-h]")||t.closest(".hchk")||t.closest("#selAll")){e.stopPropagation();return}
+  const pf=t.closest("[data-phasef]");if(pf){S.f.phase=S.f.phase===pf.dataset.phasef?"":pf.dataset.phasef;render();return}
+  if(t.closest("#hubAll")){return}
+  const q=t.closest("[data-q]");if(q){quick(q.dataset.q,q.dataset.id);return}
+  const a=t.closest("[data-act]");
+  if(a){const act=a.dataset.act;
+    if(act==="close"){closeDrawer();return}
+    if(act==="new"){newShip();return}
+    if(act==="save"){saveDrawer();return}
+    if(act==="addline"){const b=readForm();const keep=["shipment_id","po","supplier","distributor","group","country","kepler_inv","supplier_inv","method","etd","booking","hub_date","transit_hub","final_date","tracking","permit"];const n={_id:newId(),stage:1,payment:b.payment,docs:"Pending",second_release:false,type:"Reference Standard"};keep.forEach(k=>n[k]=b[k]);n.stage=autoStage(n);openDrawer(n,true);return}
+    if(act==="del"){if(!D.confirmDel){D.confirmDel=true;readForm();drawDrawer();return}const id=D.s._id,sid=D.s.shipment_id;closeDrawer();await removeShip(id);toast("Deleted a line from "+sid);return}
+    if(act==="more"){S.more=S.more||{};S.more[a.dataset.k]=!S.more[a.dataset.k];render();return}
+    if(act==="clearf"){S.f={};render();return}
+    if(act==="clearrf"){S.rf={};render();return}
+    if(act==="bell"){toggleBell();return}
+    if(act==="bulk-release"){const ids=[...S.sel];S.sel.clear();for(const id of ids){const s=structuredClone(S.ships.find(x=>x._id===id));if(s&&!s.released){applyRelease(s,{released:true});s.progress=progress(s);await persist(s)}}toast("Marked "+ids.length+" released");return}
+    if(act==="export-all"){exportAll();return}
+  }
+  const del=t.closest("[data-delsup],[data-delgrp],[data-delarr],[data-dellist]");
+  if(del){const st=S.settings;
+    if(del.dataset.delsup!=null)st.suppliers.splice(+del.dataset.delsup,1);
+    else if(del.dataset.delgrp!=null)st.groups.splice(+del.dataset.delgrp,1);
+    else if(del.dataset.delarr)st[del.dataset.delarr].splice(+del.dataset.i,1);
+    else st.lists[del.dataset.dellist].splice(+del.dataset.i,1);
+    saveSettings();return}
+  const tr=t.closest("[data-track]");if(tr){e.preventDefault();e.stopPropagation();$(".pop")?.remove();openTrack(tr.dataset.track);return}
+  const op=t.closest("[data-open]");if(op){e.preventDefault();$(".pop")?.remove();openShip(op.dataset.open);return}
+  if(t.closest("#bell")){toggleBell();return}
+  if(!t.closest(".pop"))$(".pop")?.remove();
+});
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape"){if($(".pop"))$(".pop").remove();else if(D||$(".sheet"))closeDrawer()}
+  if((e.key==="Enter"||e.key===" ")&&e.target.matches("[data-open][role=button]")){e.preventDefault();openShip(e.target.dataset.open)}
+});
+document.addEventListener("change",async e=>{
+  const t=e.target;
+  if(t.dataset.f!==undefined){S.f[t.dataset.f]=t.value;render();return}
+  if(t.dataset.rf!==undefined){S.rf[t.dataset.rf]=t.value;render();return}
+  if(t.id==="showDone"){S.showDone=t.checked;render();return}
+  if(t.id==="rsort"){S.rsort=t.value;render();return}
+  if(t.id==="selAll"){(S._relList||[]).forEach(s=>t.checked?S.sel.add(s._id):S.sel.delete(s._id));render();return}
+  if(t.dataset.sel){t.checked?S.sel.add(t.dataset.sel):S.sel.delete(t.dataset.sel);render();return}
+  if(t.dataset.sr){const s=structuredClone(S.ships.find(x=>x._id===t.dataset.sr));if(t.checked)setArrived(s,true);else applyRelease(s,{second_release:false});s.progress=progress(s);await persist(s);toast(t.checked?s.shipment_id+" marked arrived in "+destOf(s)+" and moved to 2nd Release":s.shipment_id+" moved back out of 2nd Release");return}
+  if(t.dataset.jd){S.jobDraft[t.dataset.jd]=t.value;return}
+  if(t.dataset.j){await updateJob(t.dataset.j,t.dataset.k,t.value.trim());if($(".sheet"))openJobEdit(t.dataset.j);return}
+  if(t.dataset.c){await inlineEdit(t.dataset.c,t.dataset.k,t.type==="checkbox"?t.checked:t.value.trim());return}
+  if(t.dataset.u){const u=S.settings.users&&S.settings.users.find(x=>x.id===t.dataset.u);if(!u)return;const k=t.dataset.uk;let v=t.value.trim();
+    if(k==="user"){if(!v){toast("Username can't be empty");render(true);return}if(S.settings.users.some(x=>x.id!==u.id&&x.user.toLowerCase()===v.toLowerCase())){toast("That username is taken");render(true);return}}
+    if(k==="admin"){v=v==="1";if(!v&&u.admin&&S.settings.users.filter(x=>x.admin).length<2){toast("Keep at least one admin");render(true);return}if(!v&&!(u.modules||[]).length)u.modules=ALLMODS.filter(m=>m!=="settings")}
+    u[k]=v;saveSettings();return}
+  if(t.dataset.um){const u=S.settings.users.find(x=>x.id===t.dataset.um);if(!u)return;const m=t.dataset.mod;const set=new Set(u.modules||[]);t.checked?set.add(m):set.delete(m);u.modules=ALLMODS.filter(x=>set.has(x));saveSettings();return}
+  if(t.id==="relDone"){S.relDone=t.checked;render();return}
+  if(t.id==="hubAll"){S.hubAll=t.checked;render();return}
+  if(t.dataset.h){const s=structuredClone(S.ships.find(x=>x._id===t.dataset.h));const k=t.dataset.k;const v=t.type==="checkbox"?t.checked:t.value.trim();if(s[k]===v&&k!=="hub_recv"&&k!=="final_arrived")return;if(k==="orig_attested"&&v&&s.attestation!=="Yes")s.attestation="Yes";applyHub(s,{[k]:v});s.progress=progress(s);await persist(s);if(k==="final_arrived"&&v)toast(s.shipment_id+" arrived in "+destOf(s)+" and moved to 2nd Release");return}
+  if(t.dataset.r){const s=structuredClone(S.ships.find(x=>x._id===t.dataset.r));const k=t.dataset.k;const v=t.type==="checkbox"?t.checked:t.value.trim();if(s[k]===v)return;if(k==="date_submitted"&&v&&!s.submitted_by&&me())s.submitted_by=me().name||me().user;applyRelease(s,{[k]:v});s.progress=progress(s);await persist(s);if(k==="released"&&v)toast(s.shipment_id+" released and moved to Completed");return}
+  if(t.dataset.sup!=null){S.settings.suppliers[+t.dataset.sup].group=t.value;saveSettings();return}
+  if(t.dataset.grp!=null){S.settings.groups[+t.dataset.grp][t.dataset.gk]=t.value;saveSettings();return}
+  if(t.dataset.pref){const k=t.dataset.pref;S.settings[k]=k==="currency"?t.value.trim().toUpperCase().slice(0,3)||"USD":k==="destCountry"?t.value:Math.max(1,+t.value||1);saveSettings();return}
+  // drawer automation
+  if(D&&t.closest("#shipForm")){
+    const fm=$("#shipForm");
+    if(t.name==="stage")D.stageTouched=true;
+    if(t.name==="supplier"){const sup=S.settings.suppliers.find(x=>x.name===t.value);if(sup&&sup.group){fm.elements.group.value=sup.group;applyGroup(fm,sup.group)}}
+    if(t.name==="group")applyGroup(fm,t.value);
+    if(t.name!=="stage"&&!D.stageTouched){const tmp={...D.s};[...fm.elements].forEach(el=>{if(el.name)tmp[el.name]=el.type==="checkbox"?el.checked:el.value});const a=autoStage(tmp);if(a>(+fm.elements.stage.value||1))fm.elements.stage.value=a}
+  }
+});
+function applyGroup(fm,name){
+  const g=S.settings.groups.find(x=>x.name===name);if(!g)return;
+  const set=(k,v)=>{if(!v)return;const el=fm.elements[k];if(![...el.options].some(o=>o.value===v)){const o=document.createElement("option");o.value=v;o.textContent=v;el.appendChild(o)}el.value=v};
+  set("country",g.country);set("ref_std",g.ref);set("coa",g.coa);
+}
+document.addEventListener("submit",e=>{
+  const f=e.target;e.preventDefault();
+  if(f.dataset.form==="job"){addJob();return}
+  if(f.dataset.form==="user"){const fd2=new FormData(f);const name=String(fd2.get("name")).trim(),user=String(fd2.get("user")).trim(),pass=String(fd2.get("pass")),admin=fd2.get("role")==="1";
+    if(!user||!name){toast("Enter a name and username");return}if(pass.length<4){toast("Use a password of at least 4 characters");return}
+    const us=users();if(us.some(x=>String(x.user).toLowerCase()===user.toLowerCase())){toast("That username is taken");return}
+    ensureUsers();
+    let n=1;while(S.settings.users.some(x=>x.id==="u"+n))n++;const id="u"+n;
+    S.settings.users.push({id,user,name,admin,modules:admin?ALLMODS:ALLMODS.filter(m=>m!=="settings"),hash:pwHash(id,pass).slice(0,32)});saveSettings();toast("Added "+user);return}
+  if(f.id==="loginForm"){
+    if(!S.setLoaded){$("#loginErr").textContent="Still connecting. Try again in a moment.";return}
+    const u=$("#lu").value.trim(),p=$("#lp").value;
+    const x=users().find(z=>String(z.user).toLowerCase()===u.toLowerCase());
+    const ok=x&&(x.legacy?p===x.pass:(x.hash===pwHash(x.id,p)||x.hash===pwHash(x.id,p).slice(0,32)));
+    if(!ok){$("#loginErr").textContent="Username or password is incorrect.";return}
+    if(x.disabled){$("#loginErr").textContent="This account is switched off. Ask an admin.";return}
+    S.meId=x.id;lsSet("shiptrack-auth",x.id);$("#loginErr").textContent="";
+    if(x.legacy){S.settings.users=[{id:"u1",user:x.user,name:x.user==="rony"?"Rony":x.user,admin:true,modules:ALLMODS,hash:pwHash("u1",p).slice(0,32)}];delete S.settings.auth;showApp();saveSettings();return}
+    showApp();return;
+  }
+  const kind=f.dataset.form,fd_=new FormData(f),st=S.settings;
+  if(kind==="sup"){const n=String(fd_.get("name")).trim();if(!n)return;if(st.suppliers.some(x=>x.name.toLowerCase()===n.toLowerCase())){toast(n+" is already listed");return}st.suppliers.push({name:n,group:fd_.get("group")||""})}
+  else if(kind==="grp"){const n=String(fd_.get("name")).trim();if(!n)return;if(st.groups.some(x=>x.name.toLowerCase()===n.toLowerCase())){toast(n+" is already listed");return}st.groups.push({name:n,country:fd_.get("country")||"",ref:"No Need",coa:"No"})}
+  else if(kind==="arr"){const n=String(fd_.get("v")).trim();const arr=st[f.dataset.arr];if(!n||arr.includes(n))return;arr.push(n)}
+  else if(kind==="list"){const n=String(fd_.get("v")).trim();const arr=st.lists[f.dataset.list];if(!n||arr.includes(n))return;arr.push(n)}
+  else if(kind==="auth"){const u=String(fd_.get("user")).trim(),p=String(fd_.get("pass"));if(!u||p.length<4){toast("Use a password of at least 4 characters");return}st.auth={user:u,pass:p};toast("Sign-in updated")}
+  else return;
+  saveSettings();
+});
+document.addEventListener("focusout",()=>{setTimeout(()=>{if(pendingRender)render()},0)});
+document.addEventListener("input",e=>{const t=e.target;if(t.dataset&&t.dataset.jd)S.jobDraft[t.dataset.jd]=t.value});
+$("#q").addEventListener("input",e=>{S.q=e.target.value;render()});
+$("#newBtn").addEventListener("click",newShip);
+function signOut(msg){lsDel("shiptrack-auth");S.meId=null;closeDrawer();$("#app").hidden=true;$("#login").hidden=false;$("#lp").value="";$("#loginErr").textContent=msg||""}
+$("#logoutBtn").addEventListener("click",()=>signOut());
+function toggleBell(){
+  if($(".pop")){$(".pop").remove();return}
+  const al=alerts();const p=document.createElement("div");p.className="pop";p.setAttribute("role","dialog");p.setAttribute("aria-label","Notifications");
+  p.innerHTML=`<div class="panel-h"><h2 style="font-size:16px">Notifications</h2><span class="eyebrow">${al.length}</span></div><div class="alerts">${al.map(a=>`<div class="alert ${a.lvl}" data-open="${esc(a.id)}" role="button" tabindex="0"><i></i><span>${esc(a.txt)}</span><small>${esc(a.sub)}</small></div>`).join("")||'<span style="color:var(--muted)">You\'re all caught up.</span>'}</div>`;
+  document.body.appendChild(p);
+}
+/* long-press for tab 2 cards */
+let lp=null,lpFired=false;
+document.addEventListener("pointerdown",e=>{const c=e.target.closest("[data-rcard]");if(!c)return;lpFired=false;const id=c.dataset.rcard,x=e.clientX,y=e.clientY;lp={x,y,t:setTimeout(()=>{lpFired=true;openSheet(id)},550)}});
+document.addEventListener("pointermove",e=>{if(lp&&(Math.abs(e.clientX-lp.x)>8||Math.abs(e.clientY-lp.y)>8)){clearTimeout(lp.t);lp=null}});
+document.addEventListener("pointerup",e=>{if(!lp)return;clearTimeout(lp.t);const c=e.target.closest("[data-rcard]");if(!lpFired&&c)openShip(c.dataset.rcard);lp=null});
+document.addEventListener("contextmenu",e=>{if(e.target.closest("[data-rcard]"))e.preventDefault()});
+
+/* ================= boot ================= */
+function showApp(){$("#login").hidden=true;$("#app").hidden=false;render()}
+const h0=(location.hash||"").slice(1);if(VIEWS.some(v=>v[0]===h0))S.view=h0;
+S.meId=lsGet("shiptrack-auth");if(S.meId)showApp();else{$("#login").hidden=false}
+initData();
+(async()=>{try{if(window.claude&&window.claude.use){S.dl=await window.claude.use("downloads");render()}}catch(e){}})();
+})();
+</script>
+
+</body></html>
